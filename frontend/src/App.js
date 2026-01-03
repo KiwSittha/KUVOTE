@@ -6,7 +6,8 @@ import Register from "./Register";
 import Dashboard from "./Dashboard";
 import VerifyEmail from "./VerifyEmail";
 import Home from "./Home";
-import Candidates from "./Candidates"; 
+import Candidates from "./Candidates";
+import Vote from "./Vote";
 import ProtectedRoute from "./components/ProtectedRoute"; // ✅ 1. นำเข้าไฟล์ที่เพิ่งสร้าง
 
 function App() {
@@ -36,6 +37,16 @@ function App() {
           </ProtectedRoute>
         } 
       />
+
+      <Route 
+        path="/vote" 
+        element={
+          <ProtectedRoute>
+            <Vote />
+          </ProtectedRoute>
+        } 
+      />
+
     </Routes>
   );
 }
