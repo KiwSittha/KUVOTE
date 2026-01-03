@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Swal from "sweetalert2"; // ต้องลง: npm install sweetalert2
-import Layout from "./components/Layout"; // ✅ นำเข้า Layout ที่คุณทำไว้ (เช็ค path ให้ถูกนะครับ)
+import Swal from "sweetalert2"; 
+import Layout from "../components/Layout"; // ✅ เช็ค path ให้ถูกนะครับ (ปกติถ้าไฟล์อยู่ใน pages ต้องถอย 1 ชั้นไป components)
 
 export default function Vote() {
   const [candidates, setCandidates] = useState([]);
@@ -22,7 +22,12 @@ export default function Vote() {
       const response = await fetch("https://vote-webapp.onrender.com/candidates");
       if (!response.ok) throw new Error("ดึงข้อมูลไม่สำเร็จ");
       const data = await response.json();
-      setCandidates(data);
+
+      // ✅ เรียงลำดับตามหมายเลข (candidateId) จากน้อยไปมาก (1 -> 2 -> 3)
+      // เพราะ Server อาจจะส่งแบบเรียงตามคะแนนโหวตมา เราต้องมาจัดใหม่ที่นี่
+      const sortedData = data.sort((a, b) => a.candidateId - b.candidateId);
+
+      setCandidates(sortedData);
     } catch (error) {
       console.error("Error:", error);
       Swal.fire("ข้อผิดพลาด", "ไม่สามารถดึงรายชื่อผู้สมัครได้", "error");
@@ -42,7 +47,7 @@ export default function Vote() {
       return;
     }
 
-    // ถาม PIN Code (เพราะ Backend คุณต้องการ votePin)
+    // ถาม PIN Code
     const { value: pin } = await Swal.fire({
       title: 'ยืนยันตัวตน',
       text: 'กรุณากรอกรหัส PIN 6 หลักเพื่อยืนยันสิทธิ์',
@@ -62,12 +67,10 @@ export default function Vote() {
 
     if (pin) {
       try {
-        // แสดง Loading ระหว่างรอ Server
         Swal.fire({ title: 'กำลังบันทึกคะแนน...', didOpen: () => Swal.showLoading() });
 
         const token = localStorage.getItem("token");
         
-        // ยิง API ไปที่ Backend
         const response = await fetch("https://vote-webapp.onrender.com/vote", {
           method: "POST",
           headers: {
@@ -84,7 +87,6 @@ export default function Vote() {
         const data = await response.json();
 
         if (response.ok) {
-          // อัปเดตสถานะใน localStorage
           const updatedUser = { ...user, hasVoted: true };
           localStorage.setItem("user", JSON.stringify(updatedUser));
 
@@ -110,7 +112,6 @@ export default function Vote() {
   };
 
   return (
-    // ✅ เรียกใช้ Layout ตรงนี้ เพื่อครอบเนื้อหาทั้งหมด
     <Layout>
       <div className="max-w-7xl mx-auto pb-32"> {/* pb-32 กันพื้นที่ให้ปุ่มลอย */}
         
