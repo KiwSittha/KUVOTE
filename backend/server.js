@@ -10,8 +10,13 @@ const jwt = require("jsonwebtoken");
 
 const app = express();
 
-// อนุญาต CORS (ให้ Frontend ยิงเข้ามาได้)
-app.use(cors());
+// ตั้งค่า CORS (อนุญาตให้ Frontend เข้าถึง)
+app.use(cors({
+    origin: "*", // หรือระบุโดเมนเจาะจง เช่น process.env.FRONTEND_URL
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true
+}));
+
 app.use(express.json());
 
 // =======================
@@ -69,38 +74,37 @@ async function connectDB() {
 connectDB();
 
 // =======================
-// Mail Configuration (FIXED for Render)
+// Mail Configuration (Gmail)
 // =======================
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com", // ✅ ระบุ Host ตรงๆ
-  port: 587,              // ✅ ใช้ Port 587 (TLS) มาตรฐานสำหรับ Cloud
-  secure: false,          // ✅ ต้องเป็น false สำหรับ port 587
+  host: "smtp.gmail.com",  // ระบุ Host ตรงๆ
+  port: 587,               // ใช้ Port 587 (TLS) มาตรฐานกว่า
+  secure: false,           // true สำหรับ port 465, false สำหรับ 587
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // ต้องเป็น App Password 16 หลัก
+    pass: process.env.EMAIL_PASS,
   },
   tls: {
-    ciphers: 'SSLv3'      // ✅ ช่วยแก้ปัญหา Handshake ในบาง Server
+    ciphers: 'SSLv3'       // ช่วยแก้ปัญหา Version ของ SSL บางกรณี
   }
 });
 
 // 🔥 [DEBUG] ตรวจสอบการเชื่อมต่อ Gmail ทันทีที่เริ่ม Server
 transporter.verify((error, success) => {
   if (error) {
-    console.error("❌ [MAIL ERROR] ไม่สามารถเชื่อมต่อกับ Gmail ได้:", error.message);
+    console.error("---------------------------------------------------");
+    console.error("❌ [MAIL ERROR] ไม่สามารถเชื่อมต่อกับ Gmail ได้");
+    console.error("สาเหตุ:", error.message);
+    console.error("คำแนะนำ: เช็ค EMAIL_USER และ EMAIL_PASS ใน Render Environment Variables");
+    console.error("---------------------------------------------------");
   } else {
-    console.log("✅ [MAIL READY] ระบบส่งอีเมลพร้อมใช้งาน (Port 587)");
+    console.log("✅ [MAIL READY] ระบบส่งอีเมลพร้อมใช้งาน (Logged in as " + process.env.EMAIL_USER + ")");
   }
 });
 
 // =======================
 // Routes
 // =======================
-
-// ✅ เพิ่ม Route นี้เพื่อให้ Render Health Check ผ่าน
-app.get("/healthz", (req, res) => {
-  res.status(200).send("OK");
-});
 
 app.get("/", (req, res) => {
   res.send("🚀 KUVote API Server is Running!");
@@ -110,15 +114,18 @@ app.get("/", (req, res) => {
 // 1. Register Users (With Rollback System)
 // =======================
 app.post("/register/users", async (req, res) => {
-  let insertedId = null; // เก็บ ID ไว้ลบถ้ายิงเมลไม่ผ่าน
+  let insertedId = null; // ตัวแปรสำหรับเก็บ ID เพื่อใช้ลบย้อนหลัง
 
   try {
     const { email, faculty, loginPassword, votePin } = req.body;
-    
-    // 1. เช็ค User ซ้ำ
+    console.log(`📥 [REGISTER] New request: ${email}`);
+
+    // 1. ตรวจสอบว่ามีอีเมลนี้หรือยัง
     const existingUser = await db.collection("users").findOne({ email });
     if (existingUser) {
+        // ถ้ามี user อยู่แล้ว แต่ยังไม่ยืนยันตัวตน (เกินเวลา TTL) ให้แจ้งว่าซ้ำ หรือจะลบอันเก่าก็ได้
         if (!existingUser.isVerified) {
+             // ทางเลือก: แจ้งให้ไปยืนยันเมล หรือลบอันเก่าทิ้งแล้วสมัครใหม่ (ในที่นี้แจ้งซ้ำก่อน)
              return res.status(409).json({ message: "อีเมลนี้ลงทะเบียนแล้ว กรุณาตรวจสอบอีเมลเพื่อยืนยันตัวตน" });
         }
         return res.status(409).json({ message: "อีเมลนี้ถูกใช้งานแล้ว" });
@@ -128,7 +135,7 @@ app.post("/register/users", async (req, res) => {
     const hashedPassword = await bcrypt.hash(loginPassword, 10);
     const hashedPin = await bcrypt.hash(votePin, 10);
 
-    // 3. Insert ลง DB
+    // 3. บันทึกลง Database
     const result = await db.collection("users").insertOne({
       email,
       faculty,
@@ -140,19 +147,20 @@ app.post("/register/users", async (req, res) => {
     });
 
     insertedId = result.insertedId; // ✅ จำ ID ไว้
-    console.log(`✅ [DB] User inserted: ${email}`);
+    console.log(`✅ [DB] User inserted with ID: ${insertedId}`);
 
-    // 4. สร้าง Link (ตัด Slash ท้าย URL ออกกันเหนียว)
+    // 4. สร้าง Token และ Link
     const verifyToken = jwt.sign(
       { userId: insertedId },
       process.env.JWT_SECRET,
       { expiresIn: "10m" }
     );
     
+    // ตรวจสอบ FRONTEND_URL ว่ามี Slash ปิดท้ายไหม ถ้ามีให้เอาออก
     const frontendUrl = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.replace(/\/$/, "") : "http://localhost:3000";
     const verifyLink = `${frontendUrl}/verify-email/${verifyToken}`;
 
-    // 5. HTML Email Template
+    // 5. เตรียม HTML Email
     const emailHtml = `
       <div style="font-family: sans-serif; background-color: #f4f4f5; padding: 40px;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
@@ -163,12 +171,14 @@ app.post("/register/users", async (req, res) => {
             <h2>ยืนยันการลงทะเบียน</h2>
             <p>กรุณากดปุ่มด้านล่างเพื่อยืนยันอีเมลของคุณ (ลิงก์หมดอายุใน 10 นาที)</p>
             <a href="${verifyLink}" style="display: inline-block; background-color: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0;">ยืนยันอีเมลทันที</a>
+            <p style="font-size: 12px; color: #666;">หากคลิกปุ่มไม่ได้ ให้คลิกลิงก์นี้: <a href="${verifyLink}">${verifyLink}</a></p>
           </div>
         </div>
       </div>
     `;
 
-    // 6. ส่งเมล
+    // 6. 🔥 พยายามส่งอีเมล
+    console.log("⏳ [MAIL] Sending email...");
     await transporter.sendMail({
       from: `"KUVote System" <${process.env.EMAIL_USER}>`,
       to: email,
@@ -182,14 +192,15 @@ app.post("/register/users", async (req, res) => {
   } catch (err) {
     console.error("❌ [REGISTER ERROR]:", err.message);
 
-    // 🔥 ROLLBACK SYSTEM: ลบ User ทิ้งถ้าส่งเมลไม่ผ่าน
+    // 🔥 ROLLBACK SYSTEM: ถ้าพัง (โดยเฉพาะส่งเมลไม่ผ่าน) ให้ลบข้อมูลทิ้ง
     if (insertedId) {
-        console.log("🧹 [ROLLBACK] Deleting user due to error...");
+        console.log("🧹 [ROLLBACK] Deleting user due to registration failure...");
         await db.collection("users").deleteOne({ _id: insertedId });
+        console.log("   -> User deleted. Can try again.");
     }
 
     res.status(500).json({ 
-        error: "การสมัครล้มเหลว (ระบบอีเมลขัดข้อง)",
+        error: "เกิดข้อผิดพลาดในการสมัครสมาชิก (ระบบอาจส่งอีเมลไม่สำเร็จ)",
         details: err.message 
     });
   }
@@ -208,10 +219,10 @@ app.get("/verify-email/:token", async (req, res) => {
     );
 
     if (result.matchedCount === 0) {
-      return res.status(400).send("<h1>❌ ไม่สำเร็จ</h1><p>บัญชีนี้ยืนยันไปแล้ว หรือลิงก์หมดอายุ</p>");
+      return res.status(400).send("<h1>❌ ไม่สำเร็จ</h1><p>ลิงก์นี้ถูกใช้ไปแล้ว หรือหมดอายุ</p>");
     }
 
-    res.send("<h1>🎉 ยืนยันสำเร็จ!</h1><p>คุณสามารถกลับไปหน้า Login ได้เลย</p>");
+    res.send("<h1>🎉 ยืนยันสำเร็จ!</h1><p>กลับไปหน้า Login ได้เลย</p>");
   } catch (err) {
     res.status(400).send("<h1>❌ ลิงก์ไม่ถูกต้อง หรือหมดอายุ</h1>");
   }
@@ -258,6 +269,7 @@ app.post("/login", async (req, res) => {
 // =======================
 // 4. Candidates & Voting
 // =======================
+
 async function getNextCandidateId() {
   const result = await db.collection("counters").findOneAndUpdate(
     { _id: "candidateId" },
@@ -309,6 +321,7 @@ app.post("/vote", async (req, res) => {
     const candidate = await db.collection("candidates").findOne({ candidateId });
     if (!candidate) return res.status(404).json({ message: "ไม่พบผู้สมัคร" });
 
+    // Update Transaction (Manual)
     await db.collection("users").updateOne(
       { email },
       { $set: { hasVoted: true, votedCandidate: candidateId } }
