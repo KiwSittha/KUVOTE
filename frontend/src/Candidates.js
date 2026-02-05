@@ -11,7 +11,7 @@ function Candidates() {
   // ดึงข้อมูล
   // ==========================
   useEffect(() => {
-    fetch("https://vote-webapp.onrender.com/candidates")
+    fetch("http://localhost:8000/candidates")
       .then((res) => res.json())
       .then((data) => {
         // เรียงตามเบอร์

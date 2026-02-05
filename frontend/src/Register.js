@@ -52,7 +52,7 @@ function Register() {
     }
 
     try {
-      const res = await fetch("https://vote-webapp.onrender.com/register/users", {
+      const res = await fetch("http://localhost:8000/register/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),

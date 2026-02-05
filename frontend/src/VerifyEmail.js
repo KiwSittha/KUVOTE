@@ -8,7 +8,7 @@ function VerifyEmail() {
 
   useEffect(() => {
     // 1. ส่ง Token ไปตรวจสอบที่ Server
-    fetch(`https://vote-webapp.onrender.com/verify-email/${token}`)
+    fetch(`http://localhost:8000/verify-email/${token}`)
       .then((res) => {
         if (res.ok) {
           setStatus("success");

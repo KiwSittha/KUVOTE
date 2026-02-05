@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2"; 
-import Layout from "../components/Layout"; // ✅ เช็ค path ให้ถูกนะครับ (ปกติถ้าไฟล์อยู่ใน pages ต้องถอย 1 ชั้นไป components)
+import Layout from "./components/Layout"; // ✅ เช็ค path ให้ถูกนะครับ (ปกติถ้าไฟล์อยู่ใน pages ต้องถอย 1 ชั้นไป components)
 
 export default function Vote() {
   const [candidates, setCandidates] = useState([]);
@@ -19,7 +19,7 @@ export default function Vote() {
 
   const fetchCandidates = async () => {
     try {
-      const response = await fetch("https://vote-webapp.onrender.com/candidates");
+      const response = await fetch("http://localhost:8000/candidates");
       if (!response.ok) throw new Error("ดึงข้อมูลไม่สำเร็จ");
       const data = await response.json();
 
@@ -71,7 +71,7 @@ export default function Vote() {
 
         const token = localStorage.getItem("token");
         
-        const response = await fetch("https://vote-webapp.onrender.com/vote", {
+        const response = await fetch("http://localhost:8000/vote", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

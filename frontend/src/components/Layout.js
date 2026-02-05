@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 
-export default function Layout({ children }) {
+export default function Layout({ children, fullScreen = false, hideHeader = false, hideSidebar = false }) {
   const [open, setOpen] = useState(window.innerWidth > 768);
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
@@ -43,6 +43,15 @@ export default function Layout({ children }) {
     navigate("/login");
   };
 
+  // ถ้าเป็นหน้า Full Screen (เช่น Dashboard) ให้แสดงแบบไม่มี Sidebar และ Header
+  if (fullScreen) {
+    return (
+      <div className="w-full h-screen overflow-auto m-0 p-0">
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen w-full bg-slate-50 font-sans overflow-hidden">
       
@@ -54,6 +63,7 @@ export default function Layout({ children }) {
       ></div>
 
       {/* ================= Sidebar ================= */}
+      {!hideSidebar && (
       <aside
         className={`
           fixed md:relative z-40 h-full flex flex-col text-white shadow-2xl transition-all duration-300 ease-in-out
@@ -104,11 +114,13 @@ export default function Layout({ children }) {
             <p>© 2026 KU Vote System</p>
         </div>
       </aside>
+      )}
 
       {/* ================= Main Content Area ================= */}
       <div className="flex-1 flex flex-col h-full w-full overflow-hidden relative bg-slate-50">
         
         {/* Header */}
+        {!hideHeader && (
         <header className="h-16 md:h-20 bg-white/80 backdrop-blur-md shadow-sm flex items-center justify-between px-4 md:px-8 z-10 sticky top-0 border-b border-slate-100 shrink-0">
           
           {/* Left Side: Hamburger & Logo */}
@@ -192,9 +204,10 @@ export default function Layout({ children }) {
             )}
           </div>
         </header>
+        )}
 
         {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth pb-20 md:pb-6">
+        <main className="flex-1 overflow-y-auto scroll-smooth">
           {children}
         </main>
       </div>
