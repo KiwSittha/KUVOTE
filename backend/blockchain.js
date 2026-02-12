@@ -1,159 +1,30 @@
-const crypto = require("crypto");
+require("dotenv").config();
+const { ethers } = require("ethers");
 
-/**
- * 🧱 Block Class - แทน 1 การโหวต
- */
-class Block {
-  constructor(index, timestamp, data, previousHash = "") {
-    this.index = index;
-    this.timestamp = timestamp;
-    this.data = data; // { email (hashed), candidateId, faculty }
-    this.previousHash = previousHash;
-    this.hash = this.calculateHash();
-    this.nonce = 0; // สำหรับ Proof of Work (optional)
-  }
 
-  /**
-   * คำนวณ Hash ของ Block นี้
-   */
-  calculateHash() {
-    return crypto
-      .createHash("sha256")
-      .update(
-        this.index +
-        this.previousHash +
-        this.timestamp +
-        JSON.stringify(this.data) +
-        this.nonce
-      )
-      .digest("hex");
-  }
-
-  /**
-   * 🔨 Proof of Work (ขุด Block) - ทำให้แก้ไขยากขึ้น
-   * difficulty = จำนวน 0 ที่ต้องขึ้นต้น Hash (เช่น 0000abc...)
-   */
-  mineBlock(difficulty) {
-    while (this.hash.substring(0, difficulty) !== Array(difficulty + 1).join("0")) {
-      this.nonce++;
-      this.hash = this.calculateHash();
-    }
-    console.log(`⛏️  Block mined: ${this.hash}`);
-  }
+if (!process.env.PRIVATE_KEY) {
+    console.error("❌ ERROR: ไม่พบ PRIVATE_KEY ในไฟล์ .env");
+    process.exit(1);
 }
+// 1. ตั้งค่า Provider (ประตูเชื่อมต่อ)
+const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
 
-/**
- * ⛓️ Blockchain Class - จัดการทั้ง Chain
- */
-class Blockchain {
-  constructor() {
-    this.chain = [this.createGenesisBlock()];
-    this.difficulty = 2; // ความยาก (2 = ต้องขึ้นต้นด้วย 00)
-  }
+// 2. ตั้งค่า Wallet (คนจ่ายค่า Gas)
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
-  /**
-   * สร้าง Block แรก (Genesis Block)
-   */
-  createGenesisBlock() {
-    return new Block(0, Date.now(), { info: "Genesis Block - KUVote System" }, "0");
-  }
+// 3. ระบุฟังก์ชันของ Smart Contract (ABI)
+// ต้องตรงกับชื่อฟังก์ชันใน Solidity ที่คุณ Deploy ไป
+const abi = [
+  "function vote(uint256 _candidateId, string memory _emailHash) public",
+  "function getVoteCount(uint256 _candidateId) public view returns (uint256)",
+  "function hasVoted(string memory _emailHash) public view returns (bool)",
+  // 👇 เพิ่มบรรทัดนี้เข้าไปครับ
+  "function addCandidate(string memory _name) public"
+];
 
-  /**
-   * ดึง Block ล่าสุด
-   */
-  getLatestBlock() {
-    return this.chain[this.chain.length - 1];
-  }
+// 4. สร้าง Object สัญญาเพื่อเรียกใช้
+const contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, abi, wallet);
 
-  /**
-   * ✅ เพิ่ม Block ใหม่ (บันทึกการโหวต)
-   */
-  addBlock(newBlock) {
-    newBlock.previousHash = this.getLatestBlock().hash;
-    newBlock.mineBlock(this.difficulty); // ขุด Block
-    this.chain.push(newBlock);
-  }
+console.log("🔗 Blockchain Connector: READY (Sepolia)");
 
-  /**
-   * 🔍 ตรวจสอบความถูกต้องของ Chain ทั้งหมด
-   */
-  isChainValid() {
-    for (let i = 1; i < this.chain.length; i++) {
-      const currentBlock = this.chain[i];
-      const previousBlock = this.chain[i - 1];
-
-      // เช็ค Hash ตัวเอง
-      if (currentBlock.hash !== currentBlock.calculateHash()) {
-        console.error(`❌ Block ${i} has invalid hash!`);
-        return false;
-      }
-
-      // เช็คการเชื่อมโยง
-      if (currentBlock.previousHash !== previousBlock.hash) {
-        console.error(`❌ Block ${i} is not linked to previous block!`);
-        return false;
-      }
-    }
-    return true;
-  }
-
-  /**
-   * 📊 นับคะแนนโหวตจาก Blockchain
-   */
-  countVotes() {
-    const voteCounts = {};
-    
-    // Skip Genesis Block (index 0)
-    for (let i = 1; i < this.chain.length; i++) {
-      const candidateId = this.chain[i].data.candidateId;
-      if (candidateId) {
-        voteCounts[candidateId] = (voteCounts[candidateId] || 0) + 1;
-      }
-    }
-    
-    return voteCounts;
-  }
-
-  /**
-   * 🔎 ตรวจสอบว่า email นี้โหวตแล้วหรือยัง (ใช้ Hash เพื่อความเป็นส่วนตัว)
-   */
-  hasVoted(emailHash) {
-    for (let i = 1; i < this.chain.length; i++) {
-      if (this.chain[i].data.emailHash === emailHash) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * 💾 Export Chain เป็น JSON (สำหรับเก็บใน MongoDB)
-   */
-  toJSON() {
-    return JSON.stringify(this.chain);
-  }
-
-  /**
-   * 📥 Import Chain จาก JSON
-   */
-  static fromJSON(chainJSON) {
-    const blockchain = new Blockchain();
-    const parsedChain = JSON.parse(chainJSON);
-    
-    blockchain.chain = parsedChain.map((blockData) => {
-      const block = new Block(
-        blockData.index,
-        blockData.timestamp,
-        blockData.data,
-        blockData.previousHash
-      );
-      block.hash = blockData.hash;
-      block.nonce = blockData.nonce;
-      return block;
-    });
-    
-    return blockchain;
-  }
-}
-
-module.exports = { Block, Blockchain };
+module.exports = { contract };

@@ -1,4 +1,4 @@
-console.log("🔥 SERVER STARTED: KUVote System with BLOCKCHAIN 🔥");
+console.log("🔥 SERVER STARTED: KUVote System with BLOCKCHAIN (SEPOLIA) 🔥");
 require("dotenv").config();
 
 const express = require("express");
@@ -8,7 +8,9 @@ const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const { Block, Blockchain } = require("./blockchain"); // 🔗 Import Blockchain
+
+// ✅ นำเข้า contract จากไฟล์ blockchain.js ที่แก้ไปก่อนหน้านี้
+const { contract } = require("./blockchain"); 
 
 const app = express();
 
@@ -26,8 +28,7 @@ app.use(express.json());
 const client = new MongoClient(process.env.MONGO_URI);
 let db;
 
-// 🔗 Blockchain Instance (จะโหลดจาก DB ตอน start)
-let voteBlockchain = new Blockchain();
+// ❌ ลบ let voteBlockchain ออก (ไม่ใช้ Local Chain แล้ว)
 
 async function ensureTTLIndex() {
   try {
@@ -63,50 +64,7 @@ async function ensureTTLIndex() {
   }
 }
 
-/**
- * 🔗 โหลด Blockchain จาก Database
- */
-async function loadBlockchain() {
-  try {
-    const savedChain = await db.collection("blockchain").findOne({ _id: "voteChain" });
-    
-    if (savedChain && savedChain.chain) {
-      voteBlockchain = Blockchain.fromJSON(savedChain.chain);
-      console.log("✅ Blockchain loaded from database");
-      console.log(`   -> Total blocks: ${voteBlockchain.chain.length}`);
-      
-      // ✅ Verify Blockchain Integrity
-      if (voteBlockchain.isChainValid()) {
-        console.log("✅ Blockchain integrity verified!");
-      } else {
-        console.error("❌ Blockchain is CORRUPTED! Creating new chain...");
-        voteBlockchain = new Blockchain();
-      }
-    } else {
-      console.log("📦 No blockchain found. Created new genesis block.");
-      await saveBlockchain(); // บันทึก Genesis Block
-    }
-  } catch (err) {
-    console.error("⚠️ Error loading blockchain:", err.message);
-    voteBlockchain = new Blockchain();
-  }
-}
-
-/**
- * 💾 บันทึก Blockchain ลง Database
- */
-async function saveBlockchain() {
-  try {
-    await db.collection("blockchain").updateOne(
-      { _id: "voteChain" },
-      { $set: { chain: voteBlockchain.toJSON(), updatedAt: new Date() } },
-      { upsert: true }
-    );
-    console.log("💾 Blockchain saved to database");
-  } catch (err) {
-    console.error("❌ Error saving blockchain:", err.message);
-  }
-}
+// ❌ ลบ function loadBlockchain() และ saveBlockchain() ออกทั้งหมด
 
 async function connectDB() {
   try {
@@ -114,7 +72,7 @@ async function connectDB() {
     db = client.db("vote");
     console.log("✅ MongoDB Connected Successfully");
     await ensureTTLIndex();
-    await loadBlockchain(); // 🔗 โหลด Blockchain
+    // ❌ ไม่ต้องโหลด Blockchain แล้ว เพราะข้อมูลอยู่บน Sepolia
   } catch (err) {
     console.error("❌ MongoDB Connection FAILED:", err.message);
     process.exit(1);
@@ -123,7 +81,7 @@ async function connectDB() {
 connectDB();
 
 // =======================
-// Mail Configuration
+// Mail Configuration (เหมือนเดิม)
 // =======================
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
@@ -140,10 +98,7 @@ const transporter = nodemailer.createTransport({
 
 transporter.verify((error, success) => {
   if (error) {
-    console.error("---------------------------------------------------");
-    console.error("❌ [MAIL ERROR] ไม่สามารถเชื่อมต่อกับ Gmail ได้");
-    console.error("สาเหตุ:", error.message);
-    console.error("---------------------------------------------------");
+    console.error("❌ [MAIL ERROR] ไม่สามารถเชื่อมต่อกับ Gmail ได้:", error.message);
   } else {
     console.log("✅ [MAIL READY] ระบบส่งอีเมลพร้อมใช้งาน");
   }
@@ -154,11 +109,11 @@ transporter.verify((error, success) => {
 // =======================
 
 app.get("/", (req, res) => {
-  res.send("🚀 KUVote API Server with BLOCKCHAIN is Running!");
+  res.send("🚀 KUVote API Server with REAL BLOCKCHAIN is Running!");
 });
 
 // =======================
-// 1. Register Users
+// 1. Register Users (เหมือนเดิม)
 // =======================
 app.post("/register/users", async (req, res) => {
   let insertedId = null;
@@ -189,8 +144,7 @@ app.post("/register/users", async (req, res) => {
     });
 
     insertedId = result.insertedId;
-    console.log(`✅ [DB] User inserted with ID: ${insertedId}`);
-
+    
     const verifyToken = jwt.sign(
       { userId: insertedId },
       process.env.JWT_SECRET,
@@ -208,15 +162,13 @@ app.post("/register/users", async (req, res) => {
           </div>
           <div style="padding: 30px; text-align: center;">
             <h2>ยืนยันการลงทะเบียน</h2>
-            <p>กรุณากดปุ่มด้านล่างเพื่อยืนยันอีเมลของคุณ (ลิงก์หมดอายุใน 10 นาที)</p>
+            <p>กรุณากดปุ่มด้านล่างเพื่อยืนยันอีเมลของคุณ</p>
             <a href="${verifyLink}" style="display: inline-block; background-color: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0;">ยืนยันอีเมลทันที</a>
-            <p style="font-size: 12px; color: #666;">หากคลิกปุ่มไม่ได้ ให้คลิกลิงก์นี้: <a href="${verifyLink}">${verifyLink}</a></p>
           </div>
         </div>
       </div>
     `;
 
-    console.log("⏳ [MAIL] Sending email...");
     await transporter.sendMail({
       from: `"KUVote System" <${process.env.EMAIL_USER}>`,
       to: email,
@@ -224,41 +176,26 @@ app.post("/register/users", async (req, res) => {
       html: emailHtml,
     });
 
-    console.log("✅ [MAIL] Email sent successfully!");
     res.status(201).json({ message: "สมัครสำเร็จ กรุณาตรวจสอบอีเมลเพื่อยืนยันตัวตน" });
 
   } catch (err) {
     console.error("❌ [REGISTER ERROR]:", err.message);
-
-    if (insertedId) {
-        console.log("🧹 [ROLLBACK] Deleting user due to registration failure...");
-        await db.collection("users").deleteOne({ _id: insertedId });
-        console.log("   -> User deleted. Can try again.");
-    }
-
-    res.status(500).json({ 
-        error: "เกิดข้อผิดพลาดในการสมัครสมาชิก",
-        details: err.message 
-    });
+    if (insertedId) await db.collection("users").deleteOne({ _id: insertedId });
+    res.status(500).json({ error: "เกิดข้อผิดพลาดในการสมัครสมาชิก", details: err.message });
   }
 });
 
 // =======================
-// 2. Verify Email
+// 2. Verify Email (เหมือนเดิม)
 // =======================
 app.get("/verify-email/:token", async (req, res) => {
   try {
     const decoded = jwt.verify(req.params.token, process.env.JWT_SECRET);
-
     const result = await db.collection("users").updateOne(
       { _id: new ObjectId(decoded.userId), isVerified: false },
       { $set: { isVerified: true } }
     );
-
-    if (result.matchedCount === 0) {
-      return res.status(400).send("<h1>❌ ไม่สำเร็จ</h1><p>ลิงก์นี้ถูกใช้ไปแล้ว หรือหมดอายุ</p>");
-    }
-
+    if (result.matchedCount === 0) return res.status(400).send("<h1>❌ ไม่สำเร็จ</h1><p>ลิงก์นี้ถูกใช้ไปแล้ว หรือหมดอายุ</p>");
     res.send("<h1>🎉 ยืนยันสำเร็จ!</h1><p>กลับไปหน้า Login ได้เลย</p>");
   } catch (err) {
     res.status(400).send("<h1>❌ ลิงก์ไม่ถูกต้อง หรือหมดอายุ</h1>");
@@ -266,38 +203,23 @@ app.get("/verify-email/:token", async (req, res) => {
 });
 
 // =======================
-// 3. Login
+// 3. Login (เหมือนเดิม)
 // =======================
 app.post("/login", async (req, res) => {
   try {
     let { email, loginPassword } = req.body;
     email = email?.trim().toLowerCase();
-
     const user = await db.collection("users").findOne({ email });
 
     if (!user) return res.status(404).json({ message: "ไม่พบอีเมลนี้ในระบบ" });
-
-    if (!user.isVerified) {
-      return res.status(403).json({ message: "กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ" });
-    }
+    if (!user.isVerified) return res.status(403).json({ message: "กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ" });
 
     const isPasswordCorrect = await bcrypt.compare(loginPassword, user.loginPassword);
     if (!isPasswordCorrect) return res.status(401).json({ message: "รหัสผ่านไม่ถูกต้อง" });
 
-    const token = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
+    const token = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
-    res.json({
-      token,
-      user: {
-        email: user.email,
-        faculty: user.faculty,
-        hasVoted: user.hasVoted,
-      },
-    });
+    res.json({ token, user: { email: user.email, faculty: user.faculty, hasVoted: user.hasVoted } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -313,39 +235,75 @@ async function getNextCandidateId() {
     { $inc: { seq: 1 } },
     { upsert: true, returnDocument: "after" }
   );
-  return result.value.seq;
+  // แก้ตรงนี้: ตัด .value ทิ้งไปเลย หรือใส่เผื่อไว้ทั้งสองแบบ
+  return result.seq || result.value?.seq; 
 }
 
 app.post("/candidate", async (req, res) => {
   try {
     const { name, faculty, position, policies } = req.body;
-    const candidateId = await getNextCandidateId();
+    
+    console.log(`🚀 Adding candidate: ${name} to Blockchain...`);
+
+    // ==========================================
+    // 🔗 1. ส่งคำสั่งไปสร้างบน Blockchain ก่อน
+    // ==========================================
+    
+    // เรียกฟังก์ชัน addCandidate ใน Smart Contract
+    const tx = await contract.addCandidate(name);
+    
+    console.log(`⏳ Transaction sent! Hash: ${tx.hash}`);
+    const receipt = await tx.wait(); // รอจนเสร็จ
+    
+    console.log(`✅ Block confirmed! Candidate added.`);
+
+    // ==========================================
+    // 💾 2. บันทึกลง MongoDB
+    // ==========================================
+
+    // เราจะใช้ Candidate ID ตามลำดับที่ Blockchain สร้างให้ (หรือใช้ลำดับที่เราจัดการเองก็ได้)
+    // แต่เพื่อความง่าย เราจะใช้ getNextCandidateId() เหมือนเดิม
+    const candidateId = await getNextCandidateId(); 
+
     await db.collection("candidates").insertOne({
       candidateId,
       name,
       faculty,
       position,
       policies: policies || [],
-      votes: 0, // เก็บไว้เผื่อดูง่าย (แต่จริงๆ นับจาก Blockchain)
+      votes: 0,
       createdAt: new Date(),
+      txHash: tx.hash // เก็บหลักฐานการสร้างไว้ด้วย
     });
-    res.status(201).json({ message: "เพิ่มผู้สมัครสำเร็จ", candidateId });
+
+    res.status(201).json({ 
+        message: "เพิ่มผู้สมัครสำเร็จทั้งใน Database และ Blockchain", 
+        candidateId,
+        txHash: tx.hash
+    });
+
   } catch (err) {
+    console.error("❌ Add Candidate Error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
 app.get("/candidates", async (req, res) => {
   try {
+    // 1. ดึงข้อมูลผู้สมัครจาก DB
     const candidates = await db.collection("candidates").find({}).toArray();
     
-    // 🔗 นับคะแนนจริงจาก Blockchain
-    const voteCounts = voteBlockchain.countVotes();
-    
-    // Merge ข้อมูล
-    const candidatesWithVotes = candidates.map(c => ({
-      ...c,
-      votes: voteCounts[c.candidateId] || 0
+    // 2. 🔗 วนลูปเพื่อดึงคะแนนจริงจาก Blockchain (Real-time)
+    // ใช้ Promise.all เพื่อดึงข้อมูลพร้อมกันหลายคน (จะได้เร็ว)
+    const candidatesWithVotes = await Promise.all(candidates.map(async (c) => {
+        try {
+            // เรียก Smart Contract: getVoteCount(id)
+            const votesBigInt = await contract.getVoteCount(c.candidateId);
+            return { ...c, votes: Number(votesBigInt) }; // แปลง BigInt เป็น Number
+        } catch (error) {
+            console.error(`Error fetching votes for candidate ${c.candidateId}:`, error.message);
+            return { ...c, votes: 0 }; // ถ้าดึงไม่ได้ ให้โชว์ 0 ไปก่อน
+        }
     }));
     
     // เรียงตามคะแนน
@@ -358,14 +316,14 @@ app.get("/candidates", async (req, res) => {
 });
 
 // =======================
-// 🔗 5. BLOCKCHAIN VOTING SYSTEM
+// 🔗 5. BLOCKCHAIN VOTING SYSTEM (แก้ไขใหม่)
 // =======================
 
 app.post("/vote", async (req, res) => {
   try {
     const { email, votePin, candidateId } = req.body;
     
-    // 1. ตรวจสอบ User
+    // 1. ตรวจสอบ User ใน MongoDB
     const user = await db.collection("users").findOne({ email });
     if (!user) return res.status(404).json({ message: "ไม่พบผู้ใช้" });
     if (user.hasVoted) return res.status(403).json({ message: "คุณใช้สิทธิ์ไปแล้ว" });
@@ -374,51 +332,56 @@ app.post("/vote", async (req, res) => {
     const isPinCorrect = await bcrypt.compare(votePin, user.votePin);
     if (!isPinCorrect) return res.status(401).json({ message: "รหัสโหวตไม่ถูกต้อง" });
 
-    // 3. ตรวจสอบผู้สมัคร
-    const candidate = await db.collection("candidates").findOne({ candidateId });
-    if (!candidate) return res.status(404).json({ message: "ไม่พบผู้สมัคร" });
-
-    // 4. 🔐 Hash อีเมล (เพื่อความเป็นส่วนตัว)
+    // 3. Hash อีเมล
     const emailHash = crypto.createHash("sha256").update(email).digest("hex");
 
-    // 5. ✅ ตรวจสอบซ้ำจาก Blockchain (Double Check)
-    if (voteBlockchain.hasVoted(emailHash)) {
-      return res.status(403).json({ message: "คุณโหวตในระบบแล้ว (ตรวจพบใน Blockchain)" });
-    }
+    console.log(`🚀 Sending vote to Blockchain... (Email: ${email} -> Candidate: ${candidateId})`);
 
-    // 6. 🔗 สร้าง Block ใหม่และเพิ่มลง Blockchain
-    const newBlock = new Block(
-      voteBlockchain.chain.length,
-      Date.now(),
-      {
-        emailHash: emailHash, // ไม่เก็บอีเมลจริง
-        candidateId: candidateId,
-        faculty: user.faculty,
-        timestamp: new Date().toISOString()
-      }
-    );
+    // ==========================================
+    // 🔥 ส่ง Transaction ขึ้น Blockchain จริง
+    // ==========================================
+    
+    // เรียก Smart Contract: vote(candidateId, emailHash)
+    // Admin Wallet จะเป็นคนจ่าย Gas
+    const tx = await contract.vote(candidateId, emailHash);
+    
+    console.log(`⏳ Transaction sent! Hash: ${tx.hash}`);
+    
+    // รอ Mining (ยืนยัน Block)
+    const receipt = await tx.wait(); 
+    
+    console.log(`✅ Block confirmed: Block #${receipt.blockNumber}`);
 
-    voteBlockchain.addBlock(newBlock);
-    console.log(`✅ Vote recorded in blockchain: Block #${newBlock.index}`);
+    // ==========================================
 
-    // 7. 💾 บันทึก Blockchain ลง MongoDB
-    await saveBlockchain();
-
-    // 8. ✅ Update User Status
+    // 4. อัปเดตสถานะใน MongoDB
     await db.collection("users").updateOne(
       { email },
-      { $set: { hasVoted: true, votedAt: new Date() } }
+      { $set: { hasVoted: true, transactionHash: tx.hash } }
+    );
+
+    // (Option) อัปเดตคะแนนใน DB ด้วยก็ได้ เพื่อเป็น Cache
+    await db.collection("candidates").updateOne(
+        { candidateId: parseInt(candidateId) },
+        { $inc: { votes: 1 } }
     );
 
     res.json({ 
-      message: "โหวตสำเร็จ",
-      blockIndex: newBlock.index,
-      blockHash: newBlock.hash
+      message: "โหวตสำเร็จ! ข้อมูลถูกบันทึกลง Blockchain เรียบร้อยแล้ว",
+      txHash: tx.hash,
+      blockNumber: receipt.blockNumber,
+      explorerLink: `https://sepolia.etherscan.io/tx/${tx.hash}`
     });
 
   } catch (err) {
-    console.error("❌ [VOTE ERROR]:", err.message);
-    res.status(500).json({ error: err.message });
+    console.error("❌ Vote Error:", err);
+    
+    // ดัก Error จาก Blockchain
+    if (err.reason) {
+        return res.status(400).json({ message: "Blockchain Error: " + err.reason });
+    }
+    // ดัก Error ทั่วไป
+    res.status(500).json({ error: err.message || "Unknown error occurred" });
   }
 });
 
@@ -440,33 +403,17 @@ app.get("/stats/vote-summary", async (req, res) => {
       if (item._id === false) notVoted = item.count;
     });
 
-    // 🔗 นับจาก Blockchain ด้วย (เผื่อเทียบ)
-    const blockchainVotes = voteBlockchain.chain.length - 1; // ลบ Genesis Block
-
     res.json({ 
       voted, 
       notVoted, 
       totalVerified: voted + notVoted,
-      blockchainVotes: blockchainVotes,
-      blockchainValid: voteBlockchain.isChainValid()
+      blockchainStatus: "Active (Sepolia)"
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// 🔗 ดู Blockchain ทั้งหมด (สำหรับ Admin / Debug)
-app.get("/blockchain", async (req, res) => {
-  try {
-    res.json({
-      totalBlocks: voteBlockchain.chain.length,
-      isValid: voteBlockchain.isChainValid(),
-      chain: voteBlockchain.chain
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // =======================
 // Start Server
@@ -474,5 +421,5 @@ app.get("/blockchain", async (req, res) => {
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`⛓️  Blockchain Mode: ENABLED`);
+  console.log(`⛓️  Blockchain Mode: ONLINE (Sepolia)`);
 });
