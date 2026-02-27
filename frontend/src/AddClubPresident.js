@@ -1,7 +1,7 @@
-import CandidateForm from "./components/CandidateForm";
+// import CandidateForm from "./components/CandidateForm";
 
-export default function AddClubPresident() {
-  return (
-    <CandidateForm position="นายกสโมสรนิสิต" />
-  );
-}
+// export default function AddClubPresident() {
+//   return (
+//     <CandidateForm position="นายกสโมสรนิสิต" />
+//   );
+// }

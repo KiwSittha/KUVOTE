@@ -1,126 +1,136 @@
-import React, { useEffect, useState } from "react";
-import Layout from "./components/Layout";
-import {
-  getCandidates,
-  updateCandidateStatus
-} from "./services/candidateService";
+// import React, { useEffect, useState } from "react";
+// import { useParams, useNavigate } from "react-router-dom";
+// import Layout from "../components/Layout";
 
-function AdminCandidates() {
+// function AdminCandidateDetail() {
+//   const { id } = useParams();
+//   const navigate = useNavigate();
+//   const [candidate, setCandidate] = useState(null);
+//   const [loading, setLoading] = useState(true);
 
-  const [candidates, setCandidates] = useState([]);
-  const [loading, setLoading] = useState(true);
+//   useEffect(() => {
+//     fetch(`http://localhost:8000/candidates/${id}`)
+//       .then((res) => res.json())
+//       .then((data) => {
+//   console.log("🔥 candidate data:", data);
+//   setCandidate(data);
+// })
+//       .catch(() => alert("โหลดข้อมูลไม่สำเร็จ"))
+//       .finally(() => setLoading(false));
+//   }, [id]);
+  
 
-  // ================= LOAD DATA =================
-  useEffect(() => {
-    loadCandidates();
-  }, []);
+//   if (loading) {
+//     return (
+//       <Layout>
+//         <div className="p-10 text-center text-gray-400">
+//           กำลังโหลดข้อมูล...
+//         </div>
+//       </Layout>
+//     );
+//   }
 
-  const loadCandidates = async () => {
-    try {
-      const data = await getCandidates();
-      setCandidates(data);
-    } catch {
-      alert("โหลดข้อมูลไม่สำเร็จ");
-    } finally {
-      setLoading(false);
-    }
-  };
+//   if (!candidate) {
+//     return (
+//       <Layout>
+//         <div className="p-10 text-center text-red-500">
+//           ไม่พบข้อมูลผู้สมัคร
+//         </div>
+//       </Layout>
+//     );
+//   }
 
-  // ================= APPROVE =================
-  const handleApprove = async (id) => {
-    await updateCandidateStatus(id, "approved", "");
-    loadCandidates();
-  };
+//   return (
+//     <Layout>
+//       <div className="p-8 max-w-5xl mx-auto space-y-8">
 
-  // ================= REJECT =================
-  const handleReject = async (id) => {
-    const reason = prompt("กรุณาระบุเหตุผลในการปฏิเสธ");
+//         {/* HEADER */}
+//         <div className="flex justify-between items-center">
+//           <h1 className="text-3xl font-bold">รายละเอียดผู้สมัคร</h1>
 
-    if (!reason) return;
+//           <span
+//             className={`px-4 py-1 rounded-full text-sm font-semibold
+//               ${
+//                 candidate.status === "approved"
+//                   ? "bg-green-100 text-green-700"
+//                   : candidate.status === "pending"
+//                   ? "bg-yellow-100 text-yellow-700"
+//                   : "bg-red-100 text-red-700"
+//               }`}
+//           >
+//             {candidate.status}
+//           </span>
+//         </div>
 
-    await updateCandidateStatus(id, "rejected", reason);
-    loadCandidates();
-  };
+//         {/* PROFILE SECTION */}
+//         <div className="bg-white rounded-2xl shadow p-8 flex flex-col md:flex-row gap-8">
 
-  return (
-    <Layout>
-      <div className="p-8 space-y-6">
+//           {/* IMAGE */}
+//           <div className="flex-shrink-0">
+//             {candidate.profileImage ? (
+//               <img
+//                 src={candidate.profileImage}
+//                 alt="profile"
+//                 className="w-56 h-56 object-cover rounded-2xl shadow"
+//               />
+//             ) : (
+//               <div className="w-56 h-56 bg-gray-200 rounded-2xl flex items-center justify-center text-gray-400">
+//                 ไม่มีรูปภาพ
+//               </div>
+//             )}
+//           </div>
 
-        <h1 className="text-2xl font-bold">
-          จัดการใบสมัครผู้สมัคร
-        </h1>
+//           {/* INFO */}
+//           <div className="space-y-3 text-gray-700">
+//             <p><b>ชื่อ:</b> {candidate.name}</p>
+//             <p><b>คณะ:</b> {candidate.faculty}</p>
+//             <p><b>สาขา:</b> {candidate.major}</p>
+//             <p><b>ชั้นปี:</b> {candidate.year}</p>
+//             <p><b>ตำแหน่ง:</b> {candidate.position}</p>
+//             <p><b>พรรค:</b> {candidate.partyName}</p>
+//             <p><b>สโลแกน:</b> {candidate.slogan}</p>
+//             <p><b>เบอร์โทร:</b> {candidate.phone}</p>
+//             <p><b>อีเมล:</b> {candidate.email}</p>
+//           </div>
+//         </div>
 
-        <div className="bg-white rounded-xl shadow overflow-hidden">
-          <table className="w-full text-left">
+//         {/* POLICIES */}
+//         <div className="bg-white rounded-2xl shadow p-8">
+//           <h2 className="text-xl font-bold mb-6">นโยบาย</h2>
 
-            <thead className="bg-slate-100">
-              <tr>
-                <th className="p-3">ชื่อ</th>
-                <th className="p-3">ตำแหน่ง</th>
-                <th className="p-3">คณะ</th>
-                <th className="p-3">พรรค</th>
-                <th className="p-3">สถานะ</th>
-                <th className="p-3">จัดการ</th>
-              </tr>
-            </thead>
+//           {candidate.policies && candidate.policies.length > 0 ? (
+            
+//             <ul className="space-y-4">
+//               {candidate.policies.map((policy, index) => (
+//                 <li
+//                   key={index}
+//                   className="p-4 bg-gray-50 rounded-xl border"
+//                 >
+//                   <span className="font-semibold mr-2">
+//                     {index + 1}.
+//                   </span>
+//                   {policy}
+//                 </li>
+//               ))}
+//             </ul>
+//           ) : (
+//             <p className="text-gray-400">ไม่มีนโยบาย</p>
+//           )}
+//         </div>
 
-            <tbody>
-              {candidates.map((c) => (
-                <tr key={c._id} className="border-t">
+//         {/* BACK BUTTON */}
+//         <div>
+//           <button
+//             onClick={() => navigate(-1)}
+//             className="bg-gray-200 px-6 py-2 rounded-lg hover:bg-gray-300 transition"
+//           >
+//             ← กลับ
+//           </button>
+//         </div>
 
-                  <td className="p-3">{c.fullName}</td>
-                  <td className="p-3">{c.position}</td>
-                  <td className="p-3">{c.faculty}</td>
-                  <td className="p-3">{c.partyName}</td>
+//       </div>
+//     </Layout>
+//   );
+// }
 
-                  <td className="p-3">
-                    {c.status === "pending" && (
-                      <span className="text-yellow-600 font-medium">
-                        Pending
-                      </span>
-                    )}
-                    {c.status === "approved" && (
-                      <span className="text-green-600 font-medium">
-                        Approved
-                      </span>
-                    )}
-                    {c.status === "rejected" && (
-                      <span className="text-red-600 font-medium">
-                        Rejected
-                      </span>
-                    )}
-                  </td>
-
-                  <td className="p-3 flex gap-2">
-                    {c.status === "pending" && (
-                      <>
-                        <button
-                          onClick={() => handleApprove(c._id)}
-                          className="bg-green-600 text-white px-3 py-1 rounded"
-                        >
-                          Approve
-                        </button>
-
-                        <button
-                          onClick={() => handleReject(c._id)}
-                          className="bg-red-500 text-white px-3 py-1 rounded"
-                        >
-                          Reject
-                        </button>
-                      </>
-                    )}
-                  </td>
-
-                </tr>
-              ))}
-            </tbody>
-
-          </table>
-        </div>
-
-      </div>
-    </Layout>
-  );
-}
-
-export default AdminCandidates;
+// export default AdminCandidateDetail;

@@ -96,7 +96,7 @@ useEffect(() => {
 //       alert("ไม่พบรหัสนิสิต");
 //     } finally {
 //       setLoading(false);
-//     }
+//     }โ
 //   };
 
 

@@ -1,16 +1,42 @@
-import React from "react";
+
 import { useNavigate } from "react-router-dom";
 import { User, Users, Crown } from "lucide-react";
 import Layout from "./components/Layout";
-
+import React, { useEffect, useState } from "react";
 function SelectPosition() {
   const navigate = useNavigate();
 
+  // ✅ ดึง user จาก localStorage
+  const user = JSON.parse(localStorage.getItem("user"));
+  const [showAlreadyModal, setShowAlreadyModal] = useState(false);
   const handleSelect = (position) => {
     navigate("/add-candidates", {
       state: { position },
     });
   };
+
+  // ✅ เช็คว่าผู้ใช้นี้เคยสมัครหรือยัง
+  useEffect(() => {
+  const checkAlreadyApplied = async () => {
+    if (!user) return;
+
+    try {
+      const res = await fetch("http://localhost:8000/candidates");
+      const data = await res.json();
+
+      const already = data.find(c => c.email === user.email);
+
+      if (already) {
+        setShowAlreadyModal(true); // 🔥 แสดง modal แทน navigate
+      }
+
+    } catch (err) {
+      console.error("ตรวจสอบการสมัครล้มเหลว:", err);
+    }
+  };
+
+  checkAlreadyApplied();
+}, [user]);
 
   const Card = ({ title, icon, onClick }) => (
     <button
@@ -24,7 +50,6 @@ function SelectPosition() {
         hover:-translate-y-2
       "
     >
-      {/* Gradient Hover Effect */}
       <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 to-green-600 opacity-0 group-hover:opacity-100 transition duration-300"></div>
 
       <div className="relative z-10 flex flex-col items-center space-y-4">
@@ -50,10 +75,8 @@ function SelectPosition() {
   return (
     <Layout>
       <div className="min-h-screen bg-slate-50 px-6 py-12">
-
         <div className="w-full max-w-6xl mx-auto space-y-12">
 
-          {/* ===== HEADER ===== */}
           <div className="text-center space-y-3">
             <h1 className="text-4xl font-bold text-slate-800">
               สมัครรับเลือกตั้ง
@@ -63,7 +86,6 @@ function SelectPosition() {
             </p>
           </div>
 
-          {/* ===== CARD SECTION ===== */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
 
             <Card
@@ -88,6 +110,29 @@ function SelectPosition() {
 
         </div>
       </div>
+      {showAlreadyModal && (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
+    <div className="bg-white rounded-2xl shadow-2xl p-10 text-center w-[450px]">
+
+      <h1 className="text-2xl font-bold text-red-600">
+        ไม่สามารถดำเนินการได้
+      </h1>
+
+      <p className="mt-4 text-gray-700">
+        เนื่องจากคุณได้ยื่นใบสมัครไว้แล้ว
+        ระบบไม่อนุญาตให้สมัครซ้ำ
+      </p>
+
+      <button
+  onClick={() => navigate("/")}
+  className="mt-6 bg-red-600 text-white px-6 py-2 rounded-xl hover:bg-red-700 transition"
+>
+  กลับหน้าแรก
+</button>
+
+    </div>
+  </div>
+)}
     </Layout>
   );
 }

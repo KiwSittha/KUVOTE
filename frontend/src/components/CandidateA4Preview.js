@@ -38,7 +38,7 @@ function CandidateA4Preview({ form, policies, profilePreview }) {
           <div className="col-span-2 space-y-2">
             <h2 className="font-semibold text-lg">ข้อมูลผู้สมัคร</h2>
 
-            <p><b>ชื่อ:</b> {form.fullName}</p>
+            <p><b>ชื่อ:</b> {form.name}</p>
             <p><b>ชื่อเล่น:</b> {form.nickname}</p>
             <p><b>คณะ:</b> {form.faculty}</p>
             <p><b>สาขา:</b> {form.major}</p>

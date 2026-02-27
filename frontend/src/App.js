@@ -15,6 +15,8 @@ import CandidatePreview from "./CandidatePreview";
 import CandidateSuccess from "./CandidateSuccess";
 import CandidateManagement from "./CandidateManagement";
 import CandidateDetail from "./CandidateDetail";
+import AdminCandidateDetail from "./admin/AdminCandidates";
+
 
 
 function App() {
@@ -78,13 +80,14 @@ function App() {
       />
 
       <Route
-        path="/candidate-preview"
-        element={
-          <ProtectedRoute>
-            <CandidatePreview />
-          </ProtectedRoute>
-        }
-      />
+  path="/candidate-preview/:id"
+  element={
+    <ProtectedRoute>
+      <CandidatePreview />
+    </ProtectedRoute>
+  }
+/>
+
 
       <Route
         path="/candidate-success"
@@ -96,13 +99,14 @@ function App() {
       />
 
       <Route
-        path="/candidate-detail/:id"
-        element={
-          <ProtectedRoute>
-            <CandidateDetail />
-          </ProtectedRoute>
-        }
-      />
+  path="/candidate-detail/:id"
+  element={
+    <ProtectedRoute>
+      <CandidateDetail />
+    </ProtectedRoute>
+  }
+/>
+      <Route path="/admin/candidates/:id" element={<AdminCandidateDetail />} />
 
       {/* ================= ADMIN ONLY ================= */}
       <Route

@@ -13,9 +13,9 @@ const { Block, Blockchain } = require("./blockchain"); // 🔗 Import Blockchain
 const app = express();
 
 app.use(cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
 }));
 
 app.use(express.json());
@@ -33,7 +33,7 @@ app.use((req, res, next) => {
 // =======================
 const client = new MongoClient(process.env.MONGO_URI);
 let db;
-let studentDB; 
+let studentDB;
 
 // 🔗 Blockchain Instance (จะโหลดจาก DB ตอน start)
 let voteBlockchain = new Blockchain();
@@ -78,12 +78,12 @@ async function ensureTTLIndex() {
 async function loadBlockchain() {
   try {
     const savedChain = await db.collection("blockchain").findOne({ _id: "voteChain" });
-    
+
     if (savedChain && savedChain.chain) {
       voteBlockchain = Blockchain.fromJSON(savedChain.chain);
       console.log("✅ Blockchain loaded from database");
       console.log(`   -> Total blocks: ${voteBlockchain.chain.length}`);
-      
+
       // ✅ Verify Blockchain Integrity
       if (voteBlockchain.isChainValid()) {
         console.log("✅ Blockchain integrity verified!");
@@ -179,10 +179,10 @@ app.post("/register/users", async (req, res) => {
 
     const existingUser = await db.collection("users").findOne({ email });
     if (existingUser) {
-        if (!existingUser.isVerified) {
-             return res.status(409).json({ message: "อีเมลนี้ลงทะเบียนแล้ว กรุณาตรวจสอบอีเมลเพื่อยืนยันตัวตน" });
-        }
-        return res.status(409).json({ message: "อีเมลนี้ถูกใช้งานแล้ว" });
+      if (!existingUser.isVerified) {
+        return res.status(409).json({ message: "อีเมลนี้ลงทะเบียนแล้ว กรุณาตรวจสอบอีเมลเพื่อยืนยันตัวตน" });
+      }
+      return res.status(409).json({ message: "อีเมลนี้ถูกใช้งานแล้ว" });
     }
 
     const hashedPassword = await bcrypt.hash(loginPassword, 10);
@@ -206,7 +206,7 @@ app.post("/register/users", async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "10m" }
     );
-    
+
     const frontendUrl = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.replace(/\/$/, "") : "http://localhost:3000";
     const verifyLink = `${frontendUrl}/verify-email/${verifyToken}`;
 
@@ -241,14 +241,14 @@ app.post("/register/users", async (req, res) => {
     console.error("❌ [REGISTER ERROR]:", err.message);
 
     if (insertedId) {
-        console.log("🧹 [ROLLBACK] Deleting user due to registration failure...");
-        await db.collection("users").deleteOne({ _id: insertedId });
-        console.log("   -> User deleted. Can try again.");
+      console.log("🧹 [ROLLBACK] Deleting user due to registration failure...");
+      await db.collection("users").deleteOne({ _id: insertedId });
+      console.log("   -> User deleted. Can try again.");
     }
 
-    res.status(500).json({ 
-        error: "เกิดข้อผิดพลาดในการสมัครสมาชิก",
-        details: err.message 
+    res.status(500).json({
+      error: "เกิดข้อผิดพลาดในการสมัครสมาชิก",
+      details: err.message
     });
   }
 });
@@ -306,7 +306,7 @@ app.post("/login", async (req, res) => {
         email: user.email,
         faculty: user.faculty,
         hasVoted: user.hasVoted,
-        role: user.role || "user"   
+        role: user.role || "user"
       },
     });
 
@@ -350,39 +350,49 @@ app.post("/candidates", async (req, res) => {
       email
     } = req.body;
 
+    // 🔥 เช็คว่ามี email นี้สมัครแล้วหรือยัง
+    const existing = await db.collection("candidates").findOne({ email });
+
+    if (existing) {
+      return res.status(400).json({
+        message: "คุณเคยสมัครไปแล้ว ไม่สามารถสมัครซ้ำได้"
+      });
+    }
+
     const candidateId = await getNextCandidateId();
 
-    const candidate = {
-      candidateId,
-      name,
-      faculty,
-      position,
-      policies: Array.isArray(policies)
-        ? policies.map(p => p.title || p)
-        : [],
-      profileImage: profileImage || null,
-      partyName: partyName || "",
-      slogan: slogan || "",
-      phone: phone || "",
-      major: major || "",
-      year: year || "",
-      email: email || "",
-      status: "pending",
-      rejectReason: null,
-      votes: 0,
-      createdAt: new Date()
-    };
+    // ทำความสะอาดนโยบายก่อนบันทึก
+const cleanPolicies = policies
+  ?.map(p => p.trim())
+  .filter(p => p !== "");
+
+const candidate = {
+  candidateId,
+  name,
+  faculty,
+  position,
+  policies: cleanPolicies,   // 👈 ใช้อันนี้แทน
+  profileImage,
+  partyName,
+  slogan,
+  phone,
+  major,
+  year,
+  email,
+  status: "pending",
+  rejectReason: null,
+  votes: 0,
+  createdAt: new Date()
+};
 
     await db.collection("candidates").insertOne(candidate);
 
     res.status(201).json({ message: "สมัครสำเร็จ" });
 
   } catch (err) {
-    console.error("CANDIDATE ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 });
-
 
 app.get("/candidates", async (req, res) => {
   try {
@@ -441,7 +451,7 @@ app.put("/candidates/:id", async (req, res) => {
 app.post("/vote", async (req, res) => {
   try {
     const { email, votePin, candidateId } = req.body;
-    
+
     // 1. ตรวจสอบ User
     const user = await db.collection("users").findOne({ email });
     if (!user) return res.status(404).json({ message: "ไม่พบผู้ใช้" });
@@ -487,7 +497,7 @@ app.post("/vote", async (req, res) => {
       { $set: { hasVoted: true, votedAt: new Date() } }
     );
 
-    res.json({ 
+    res.json({
       message: "โหวตสำเร็จ",
       blockIndex: newBlock.index,
       blockHash: newBlock.hash
@@ -499,21 +509,12 @@ app.post("/vote", async (req, res) => {
   }
 });
 
-app.get("/student/:id", async (req, res) => {
-  try {
-    const student = await studentDB
-      .collection("std_info")
-      .findOne({ _id: req.params.id });
+app.get("/candidates/:id", async (req, res) => {
+  const candidate = await db.collection("candidates").findOne({
+    _id: new ObjectId(req.params.id)
+  });
 
-    if (!student) {
-      return res.status(404).json({ message: "ไม่พบข้อมูลนิสิต" });
-    }
-
-    res.json(student);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  res.json(candidate);
 });
 
 
@@ -538,9 +539,9 @@ app.get("/stats/vote-summary", async (req, res) => {
     // 🔗 นับจาก Blockchain ด้วย (เผื่อเทียบ)
     const blockchainVotes = voteBlockchain.chain.length - 1; // ลบ Genesis Block
 
-    res.json({ 
-      voted, 
-      notVoted, 
+    res.json({
+      voted,
+      notVoted,
       totalVerified: voted + notVoted,
       blockchainVotes: blockchainVotes,
       blockchainValid: voteBlockchain.isChainValid()
