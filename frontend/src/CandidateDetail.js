@@ -3,14 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import { getCandidateById, updateCandidateStatus } from "./services/candidateService";
 
-function CandidateDetail({ isAdmin = false }) {
+function CandidateDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
 
   const [candidate, setCandidate] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-
+const [selectedReasons, setSelectedReasons] = useState([]);
   // ================= FETCH DATA =================
   useEffect(() => {
     const fetchCandidate = async () => {
@@ -35,6 +35,13 @@ function CandidateDetail({ isAdmin = false }) {
       alert("เกิดข้อผิดพลาดในการอัปเดตสถานะ");
     }
   };
+  const handleToggleReason = (reason) => {
+  setSelectedReasons(prev =>
+    prev.includes(reason)
+      ? prev.filter(r => r !== reason)
+      : [...prev, reason]
+  );
+};
 
   // ================= LOADING =================
   if (!candidate) {
@@ -122,8 +129,9 @@ function CandidateDetail({ isAdmin = false }) {
             {candidate.policies && candidate.policies.length > 0 ? (
               candidate.policies.map((policy, index) => (
                 <div key={index} className="border rounded-lg p-4">
-                  <p className="font-semibold">{index + 1}.</p>
-                  <p className="text-slate-600">{policy}</p>
+                  <p className="text-slate-600">
+                    {index + 1}. {policy}
+                  </p>
                 </div>
               ))
             ) : (
@@ -131,62 +139,100 @@ function CandidateDetail({ isAdmin = false }) {
             )}
           </div>
 
+          {/* ADMIN ACTIONS */}
+          {candidate.status === "pending" && (
+            <div className="flex gap-4 mt-6">
+              <button
+                onClick={() => handleUpdateStatus("approved")}
+                className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700"
+              >
+                Approve
+              </button>
+
+              <button
+                onClick={() => setShowRejectModal(true)}
+                className="flex-1 bg-red-600 text-white py-3 rounded-xl hover:bg-red-700"
+              >
+                Reject
+              </button>
+            </div>
+          )}
+
         </div>
-
-        {/* ADMIN ACTIONS */}
-        {isAdmin && candidate.status === "pending" && (
-          <div className="max-w-4xl mx-auto flex gap-6 pb-10">
-            <button
-              onClick={() => handleUpdateStatus("approved")}
-              className="flex-1 bg-green-600 text-white py-4 rounded-xl"
-            >
-              Approve
-            </button>
-
-            <button
-              onClick={() => setShowRejectModal(true)}
-              className="flex-1 bg-red-600 text-white py-4 rounded-xl"
-            >
-              Reject
-            </button>
-          </div>
-        )}
-
       </Layout>
 
       {/* REJECT MODAL */}
-      {showRejectModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white p-8 rounded-2xl w-[500px] space-y-4 shadow-2xl">
-            <h2 className="text-xl font-bold text-red-600">
-              เหตุผลในการปฏิเสธ
-            </h2>
+      {/* REJECT MODAL */}
+{showRejectModal && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div className="bg-white p-8 rounded-2xl w-[500px] space-y-4 shadow-2xl">
 
-            <textarea
-              className="w-full border rounded-xl p-3"
-              rows="4"
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
+      <h2 className="text-xl font-bold text-red-600">
+        เลือกเหตุผลที่ต้องแก้ไข
+      </h2>
+
+      {/* CHECKBOX OPTIONS */}
+      <div className="space-y-2">
+        {[
+          "ข้อมูลส่วนตัวไม่ครบถ้วน",
+          "รูปภาพไม่ชัดเจน",
+          "นโยบายไม่เหมาะสม",
+          "เอกสารไม่ถูกต้อง",
+          "ข้อมูลติดต่อไม่ถูกต้อง"
+        ].map((reason, index) => (
+          <label key={index} className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={selectedReasons.includes(reason)}
+              onChange={() => handleToggleReason(reason)}
             />
+            <span>{reason}</span>
+          </label>
+        ))}
+      </div>
 
-            <div className="flex gap-4 pt-2">
-              <button
-                onClick={() => setShowRejectModal(false)}
-                className="flex-1 bg-gray-200 py-2 rounded-xl"
-              >
-                ยกเลิก
-              </button>
+      {/* ADDITIONAL DETAIL */}
+      <textarea
+        className="w-full border rounded-xl p-3 mt-3"
+        rows="3"
+        placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)"
+        value={rejectReason}
+        onChange={(e) => setRejectReason(e.target.value)}
+      />
 
-              <button
-                onClick={() => handleUpdateStatus("rejected")}
-                className="flex-1 bg-red-600 text-white py-2 rounded-xl"
-              >
-                ยืนยัน Reject
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="flex gap-4 pt-2">
+        <button
+          onClick={() => setShowRejectModal(false)}
+          className="flex-1 bg-gray-200 py-2 rounded-xl"
+        >
+          ยกเลิก
+        </button>
+
+        <button
+          onClick={() => {
+            if (selectedReasons.length === 0) {
+              alert("กรุณาเลือกอย่างน้อย 1 เหตุผล");
+              return;
+            }
+
+            const finalReason = [
+              ...selectedReasons,
+              rejectReason && `เพิ่มเติม: ${rejectReason}`
+            ]
+              .filter(Boolean)
+              .join(", ");
+
+            setRejectReason(finalReason);
+            handleUpdateStatus("rejected");
+          }}
+          className="flex-1 bg-red-600 text-white py-2 rounded-xl"
+        >
+          ยืนยัน Reject
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </>
   );
 }

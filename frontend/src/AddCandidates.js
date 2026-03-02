@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import Layout from "./components/Layout";
 import StepBar from "./components/StepBar";
 import { useLocation, useNavigate } from "react-router-dom";
-// import { getStudentById } from "./services/studentService";
 
 const POSITION_LABELS = {
   OBK: "นายกองค์การบริหารนิสิต (อบก.)",
@@ -11,8 +10,6 @@ const POSITION_LABELS = {
   CLUB: "นายกสโมสรนิสิต"
 };
 
-
-
 function AddCandidates() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -20,10 +17,7 @@ function AddCandidates() {
   const position = location.state?.position;
 
   const [step, setStep] = useState(1);
-  // const [loading, setLoading] = useState(false);
-
   const [profilePreview, setProfilePreview] = useState(null);
-  // const [autoFilled, setAutoFilled] = useState(false);
 
   const [form, setForm] = useState({
     studentId: "",
@@ -37,32 +31,26 @@ function AddCandidates() {
     partyName: "",
     slogan: "",
     phone: "",
-    vision: "",
-    teamSize: "",
-    zone: "",
-    clubName: ""
+    profileImage: null
   });
 
-  const [policies, setPolicies] = useState([
-    { title: "", description: "" }
-  ]);
-useEffect(() => {
-  const storedUser = JSON.parse(localStorage.getItem("user"));
+  // ✅ policies เป็น string array เท่านั้น
+  const [policies, setPolicies] = useState([""]);
 
-  if (storedUser) {
-    setForm(prev => ({
-      ...prev,
-      name: storedUser.name || "",
-      faculty: storedUser.faculty || "",
-      major: storedUser.major || "",
-      year: storedUser.year || "",
-      email: storedUser.email || ""
-    }));
+  useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem("user"));
+    if (storedUser) {
+      setForm(prev => ({
+        ...prev,
+        name: storedUser.name || "",
+        faculty: storedUser.faculty || "",
+        major: storedUser.major || "",
+        year: storedUser.year || "",
+        email: storedUser.email || ""
+      }));
+    }
+  }, []);
 
-    // setAutoFilled(true); // 👈 เพิ่มบรรทัดนี้
-  }
-}, []);
-  /* ================= PROTECT ROUTE ================= */
   useEffect(() => {
     if (!position) {
       navigate("/select-position");
@@ -71,62 +59,35 @@ useEffect(() => {
 
   if (!position) return null;
 
-  /* ================= SEARCH STUDENT ================= */
-//   const handleSearchStudent = async (e) => {
-//     e.preventDefault();
-
-//     if (!form.studentId) return alert("กรุณากรอกรหัสนิสิต");
-
-//     try {
-//       setLoading(true);
-
-//       const data = await getStudentById(form.studentId);
-
-//       setForm(prev => ({
-//   ...prev,
-//   fullName: data.name?.th || "",
-//   faculty: data.faculty?.th || "",
-//   major: data.department?.th || "",
-//   year: data.year || "",
-//   email: data.email || ""
-// }));
-
-
-//     } catch {
-//       alert("ไม่พบรหัสนิสิต");
-//     } finally {
-//       setLoading(false);
-//     }โ
-//   };
-
-
-
-  /* ================= POLICY ================= */
-  const addPolicy = () =>
-    setPolicies([...policies, { title: "", description: "" }]);
-
-  const updatePolicy = (index, field, value) => {
-    const updated = [...policies];
-    updated[index][field] = value;
-    setPolicies(updated);
+  // ================= POLICY FUNCTIONS =================
+  const addPolicy = () => {
+    setPolicies([...policies, ""]);
   };
 
-  /* ================= UI ================= */
+  const updatePolicy = (index, value) => {
+    const updated = [...policies];
+    updated[index] = value;
+    setPolicies(updated);
+  };
+  const deletePolicy = (index) => {
+  if (index === 0) return; // กันช่องแรก
+
+  const updated = policies.filter((_, i) => i !== index);
+  setPolicies(updated);
+};;
+
   return (
     <Layout>
       <div className="min-h-screen px-6 py-8">
         <div className="max-w-[1200px] mx-auto space-y-10">
 
-          {/* HEADER */}
           <div>
             <h1 className="text-3xl font-bold text-slate-800">
               สมัครรับเลือกตั้ง
             </h1>
             <p className="text-slate-500 mt-1">
-  ตำแหน่ง: {POSITION_LABELS[position] || position}
-</p>
-
-
+              ตำแหน่ง: {POSITION_LABELS[position] || position}
+            </p>
           </div>
 
           <StepBar step={step} />
@@ -134,58 +95,37 @@ useEffect(() => {
           {/* ================= STEP 1 ================= */}
           {step === 1 && (
             <div className="bg-white rounded-2xl shadow p-10 space-y-6">
-
               <h2 className="text-xl font-semibold">ข้อมูลผู้สมัคร</h2>
 
-              {/* Student ID */}
-              {/* <div className="space-y-1">
-                <label className="text-sm font-medium">
-                  รหัสนิสิต <span className="text-red-500">*</span>
-                </label>
+              {["name", "faculty", "major", "year", "email"].map((field, i) => {
+  const isLocked = field === "faculty" || field === "email";
 
-                <form onSubmit={handleSearchStudent} className="flex gap-3">
-                  <input
-                    className="flex-1 border rounded-xl p-3"
-                    value={form.studentId}
-                    onChange={(e) =>
-                      setForm({ ...form, studentId: e.target.value })
-                    }
-                  />
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="bg-emerald-600 text-white px-6 rounded-xl"
-                  >
-                    {loading ? "กำลังค้นหา..." : "ค้นหา"}
-                  </button>
-                </form>
-              </div> */}
-              {/* Readonly Info */}
-              {["name", "faculty", "major", "year", "email"].map((field, i) => (
-                <div key={i} className="space-y-1">
-                  <label className="text-sm font-medium">
-                    {field === "name" && "ชื่อ–นามสกุล"}
-                    {field === "faculty" && "คณะ"}
-                    {field === "major" && "สาขาวิชา"}
-                    {field === "year" && "ชั้นปี"}
-                    {field === "email" && "Email"}
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <input
-  value={form[field]}
-  onChange={(e) =>
-    setForm({ ...form, [field]: e.target.value })
-  }
-  className="border p-3 rounded-xl w-full"
-/>
-                </div>
-              ))}
+  return (
+    <div key={i} className="space-y-1">
+      <label className="text-sm font-medium">
+        {field === "name" && "ชื่อ–นามสกุล"}
+        {field === "faculty" && "คณะ"}
+        {field === "major" && "สาขาวิชา"}
+        {field === "year" && "ชั้นปี"}
+        {field === "email" && "Email"}
+      </label>
 
-              {/* Nickname */}
+      <input
+        value={form[field]}
+        readOnly={isLocked}
+        onChange={(e) =>
+          !isLocked &&
+          setForm({ ...form, [field]: e.target.value })
+        }
+        className={`border p-3 rounded-xl w-full ${
+          isLocked ? "bg-gray-100 cursor-not-allowed" : ""
+        }`}
+      />
+    </div>
+  );
+})}
               <div className="space-y-1">
-                <label className="text-sm font-medium">
-                  ชื่อเล่น <span className="text-red-500">*</span>
-                </label>
+                <label className="text-sm font-medium">ชื่อเล่น</label>
                 <input
                   className="border p-3 rounded-xl w-full"
                   value={form.nickname}
@@ -195,11 +135,8 @@ useEffect(() => {
                 />
               </div>
 
-              {/* Phone */}
               <div className="space-y-1">
-                <label className="text-sm font-medium">
-                  เบอร์โทรศัพท์ <span className="text-red-500">*</span>
-                </label>
+                <label className="text-sm font-medium">เบอร์โทรศัพท์</label>
                 <input
                   type="tel"
                   maxLength={10}
@@ -214,33 +151,22 @@ useEffect(() => {
                 />
               </div>
 
-              {/* Profile Image */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  รูปโปรไฟล์ <span className="text-red-500">*</span>
-                </label>
+                <label className="text-sm font-medium">รูปโปรไฟล์</label>
                 <input
                   type="file"
                   accept="image/*"
                   onChange={(e) => {
-  const file = e.target.files[0];
+                    const file = e.target.files[0];
+                    if (!file) return;
 
-  if (!file) return;
+                    setProfilePreview(URL.createObjectURL(file));
 
-  const reader = new FileReader();
-
-  reader.onloadend = () => {
-    setProfilePreview(reader.result);
-
-    setForm(prev => ({
-      ...prev,
-      profileImage: reader.result
-    }));
-  };
-
-  reader.readAsDataURL(file);
-}}
-
+                    setForm(prev => ({
+                      ...prev,
+                      profileImage: file
+                    }));
+                  }}
                 />
                 {profilePreview && (
                   <img
@@ -252,110 +178,81 @@ useEffect(() => {
               </div>
 
               <button
-onClick={() => {
-  if (
-    !form.name ||
-    !form.nickname ||
-    !form.phone ||
-    !form.profileImage
-  ) {
-    return alert("กรุณากรอกข้อมูลให้ครบก่อนดำเนินการต่อ");
-  }
-
-  setStep(2);
-}}
-  className="w-full bg-emerald-600 text-white py-3 rounded-xl"
->
-  ถัดไป →
-</button>
-
-
+                onClick={() => setStep(2)}
+                className="w-full bg-emerald-600 text-white py-3 rounded-xl"
+              >
+                ถัดไป →
+              </button>
             </div>
           )}
 
           {/* ================= STEP 2 ================= */}
           {step === 2 && (
             <div className="bg-white rounded-2xl shadow p-10 space-y-6">
-
               <h2 className="text-xl font-semibold">ข้อมูลการลงสมัคร</h2>
 
-              <div className="space-y-1">
-                <label className="text-sm font-medium">
-                  ชื่อพรรค / ทีม <span className="text-red-500">*</span>
-                </label>
-                <input
-                  className="border p-3 rounded-xl w-full"
-                  value={form.partyName}
-                  onChange={(e) =>
-                    setForm({ ...form, partyName: e.target.value })
-                  }
-                />
+              <input
+                className="border p-3 rounded-xl w-full"
+                placeholder="ชื่อพรรค / ทีม"
+                value={form.partyName}
+                onChange={(e) =>
+                  setForm({ ...form, partyName: e.target.value })
+                }
+              />
+
+              <input
+                className="border p-3 rounded-xl w-full"
+                placeholder="สโลแกน"
+                value={form.slogan}
+                onChange={(e) =>
+                  setForm({ ...form, slogan: e.target.value })
+                }
+              />
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setStep(1)}
+                  className="flex-1 py-3 rounded-xl bg-gray-200"
+                >
+                  กลับ
+                </button>
+                <button
+                  onClick={() => setStep(3)}
+                  className="flex-1 py-3 rounded-xl bg-emerald-600 text-white"
+                >
+                  ถัดไป →
+                </button>
               </div>
-
-              <div className="space-y-1">
-                <label className="text-sm font-medium">
-                  สโลแกน <span className="text-red-500">*</span>
-                </label>
-                <input
-                  className="border p-3 rounded-xl w-full"
-                  value={form.slogan}
-                  onChange={(e) =>
-                    setForm({ ...form, slogan: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="flex gap-4 pt-4">
-
-  <button
-    onClick={() => setStep(1)}
-    className="flex-1 py-3 rounded-xl bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 transition"
-  >
-    กลับ
-  </button>
-                 <button
-    onClick={() => {
-      if (!form.partyName || !form.slogan) {
-        return alert("กรุณากรอกข้อมูลให้ครบก่อนดำเนินการต่อ");
-      }
-      setStep(3);
-    }}
-    className="flex-1 py-3 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition"
-  >
-    ถัดไป →
-  </button>
-
-              </div>
-
             </div>
           )}
 
           {/* ================= STEP 3 ================= */}
           {step === 3 && (
             <div className="bg-white rounded-2xl shadow p-10 space-y-6">
-
               <h2 className="text-xl font-semibold">นโยบาย</h2>
 
-              {policies.map((p, i) => (
-                <div key={i} className="border p-4 rounded-xl space-y-3">
-                  <input
-                    className="border p-3 rounded-xl w-full"
-                    placeholder="หัวข้อนโยบาย"
-                    value={p.title}
-                    onChange={(e) =>
-                      updatePolicy(i, "title", e.target.value)
-                    }
-                  />
-                  <textarea
-                    className="border p-3 rounded-xl w-full"
-                    placeholder="รายละเอียด"
-                    value={p.description}
-                    onChange={(e) =>
-                      updatePolicy(i, "description", e.target.value)
-                    }
-                  />
-                </div>
-              ))}
+              {policies.map((policy, i) => (
+  <div key={i} className="flex gap-2 items-center">
+    <input
+      className="border p-3 rounded-xl w-full"
+      placeholder={`นโยบายที่ ${i + 1}`}
+      value={policy}
+      onChange={(e) => updatePolicy(i, e.target.value)}
+    />
+
+    {i !== 0 && (
+      <button
+        type="button"
+        onClick={() => deletePolicy(i)}
+        className="w-10 h-10 flex items-center justify-center 
+                   bg-red-100 text-red-600 rounded-xl 
+                   hover:bg-red-200 transition"
+      >
+        −
+      </button>
+    )}
+  </div>
+))}
 
               <button
                 onClick={addPolicy}
@@ -373,28 +270,21 @@ onClick={() => {
                 </button>
 
                 <button
-  className="flex-1 bg-emerald-600 text-white py-3 rounded-xl"
-  onClick={() => {
+                  className="flex-1 bg-emerald-600 text-white py-3 rounded-xl"
+                  onClick={() => {
+                    const hasEmpty = policies.some(p => !p);
+                    if (hasEmpty) {
+                      return alert("กรุณากรอกนโยบายให้ครบ");
+                    }
 
-    const hasEmptyPolicy = policies.some(
-      p => !p.title || !p.description
-    );
-
-    if (hasEmptyPolicy) {
-      return alert("กรุณากรอกนโยบายให้ครบ");
-    }
-
-    navigate("/candidate-preview", {
-      state: { form, policies }
-    });
-  }}
->
-  ตรวจสอบข้อมูล →
-</button>
-
-
+                    navigate("/candidate-preview", {
+                      state: { form, policies }
+                    });
+                  }}
+                >
+                  ตรวจสอบข้อมูล →
+                </button>
               </div>
-
             </div>
           )}
 

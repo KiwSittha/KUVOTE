@@ -28,10 +28,11 @@ export default function Login() {
       else if (res.status === 401) setError("รหัสผ่านไม่ถูกต้อง");
       else if (!res.ok) setError("เข้าสู่ระบบไม่สำเร็จ");
       else {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-        navigate("/");
-      }
+  localStorage.setItem("token", data.token);
+  localStorage.setItem("user", JSON.stringify(data.user));
+  navigate("/", { replace: true });
+  window.location.reload(); // ✅ เพิ่มบรรทัดนี้
+}
     } catch (err) {
       setError("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
     } finally {

@@ -12,10 +12,9 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import SelectPosition from "./SelectPosition";
 import AddCandidates from "./AddCandidates";
 import CandidatePreview from "./CandidatePreview";
-import CandidateSuccess from "./CandidateSuccess";
 import CandidateManagement from "./CandidateManagement";
 import CandidateDetail from "./CandidateDetail";
-import AdminCandidateDetail from "./admin/AdminCandidates";
+
 
 
 
@@ -80,23 +79,13 @@ function App() {
       />
 
       <Route
-  path="/candidate-preview/:id"
+  path="/candidate-preview"
   element={
     <ProtectedRoute>
       <CandidatePreview />
     </ProtectedRoute>
   }
 />
-
-
-      <Route
-        path="/candidate-success"
-        element={
-          <ProtectedRoute>
-            <CandidateSuccess />
-          </ProtectedRoute>
-        }
-      />
 
       <Route
   path="/candidate-detail/:id"
@@ -106,7 +95,7 @@ function App() {
     </ProtectedRoute>
   }
 />
-      <Route path="/admin/candidates/:id" element={<AdminCandidateDetail />} />
+      
 
       {/* ================= ADMIN ONLY ================= */}
       <Route
