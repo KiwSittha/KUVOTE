@@ -35,7 +35,21 @@ export default function Sidebar({ open, setOpen }) {
           flex flex-col
         `}
       >
-        {/* Logo */}
+        {/* Logo */}        <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto">
+          <MenuItem open={open} to="/" icon="🏠" text="หน้าหลัก" active={location.pathname === "/"} />
+          <MenuItem open={open} to={user ? "/candidates" : "/login"} icon="👥" text="ผู้สมัคร" active={location.pathname === "/candidates"} />
+          <MenuItem open={open} to={user ? "/vote" : "/login"} icon="🗳️" text="ลงคะแนนเสียง" active={location.pathname === "/vote"} />
+          <MenuItem open={open} to={user ? "/dashboard" : "/login"} icon="📊" text="ผลการเลือกตั้ง" active={location.pathname === "/dashboard"} />
+          {/* ADD THIS LINE: */}
+          <MenuItem open={open} to="/community" icon="💬" text="ชุมชน" active={location.pathname === "/community"} />
+        </nav>        <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto">
+          <MenuItem open={open} to="/" icon="🏠" text="หน้าหลัก" active={location.pathname === "/"} />
+          <MenuItem open={open} to={user ? "/candidates" : "/login"} icon="👥" text="ผู้สมัคร" active={location.pathname === "/candidates"} />
+          <MenuItem open={open} to={user ? "/vote" : "/login"} icon="🗳️" text="ลงคะแนนเสียง" active={location.pathname === "/vote"} />
+          <MenuItem open={open} to={user ? "/dashboard" : "/login"} icon="📊" text="ผลการเลือกตั้ง" active={location.pathname === "/dashboard"} />
+          {/* ADD THIS LINE: */}
+          <MenuItem open={open} to="/community" icon="💬" text="ชุมชน" active={location.pathname === "/community"} />
+        </nav>
         <div className="p-6 font-bold text-xl border-b border-green-400">
           KUVote
         </div>
@@ -65,6 +79,13 @@ export default function Sidebar({ open, setOpen }) {
           >
             📊 Live Results
           </Link>
+          <Link
+  to="/community"
+  onClick={() => setOpen(false)}
+  className="block px-4 py-2 rounded hover:bg-green-600"
+>
+  💬 ชุมชน
+</Link>
         </nav>
 
         {/* Logout */}

@@ -3,6 +3,7 @@ require("dotenv").config();
 
 const express = require("express");
 const { MongoClient, ObjectId } = require("mongodb");
+const mongoose = require("mongoose");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
@@ -11,6 +12,19 @@ const crypto = require("crypto");
 
 // ✅ นำเข้า contract จากไฟล์ blockchain.js ที่แก้ไปก่อนหน้านี้
 const { contract } = require("./blockchain"); 
+
+// ✅ นำเข้า Community routes
+const {
+  getThreads,
+  createThread,
+  getThread,
+  addComment,
+  voteOnThread,
+  voteOnComment,
+  likeComment,
+  unlikeComment,
+  getCommentLikes
+} = require("./routes/community");
 
 const app = express();
 
@@ -71,10 +85,17 @@ async function connectDB() {
     await client.connect();
     db = client.db("vote");
     console.log("✅ MongoDB Connected Successfully");
+    
+    // Connect Mongoose for community models
+    await mongoose.connect(process.env.MONGO_URI, {
+      dbName: "vote"
+    });
+    console.log("✅ Mongoose Connected Successfully");
+    
     await ensureTTLIndex();
     // ❌ ไม่ต้องโหลด Blockchain แล้ว เพราะข้อมูลอยู่บน Sepolia
   } catch (err) {
-    console.error("❌ MongoDB Connection FAILED:", err.message);
+    console.error("❌ Database Connection FAILED:", err.message);
     process.exit(1);
   }
 }
@@ -414,6 +435,37 @@ app.get("/stats/vote-summary", async (req, res) => {
   }
 });
 
+
+// =======================
+// Community Forum Routes
+// =======================
+
+// GET /api/threads - Get all threads
+app.get("/api/threads", getThreads);
+
+// POST /api/threads - Create new thread
+app.post("/api/threads", createThread);
+
+// GET /api/threads/:id - Get single thread with comments
+app.get("/api/threads/:id", getThread);
+
+// POST /api/threads/:id/comments - Add comment to thread
+app.post("/api/threads/:id/comments", addComment);
+
+// POST /api/threads/:id/vote - Vote on thread
+app.post("/api/threads/:id/vote", voteOnThread);
+
+// POST /api/comments/:id/vote - Vote on comment
+app.post("/api/comments/:id/vote", voteOnComment);
+
+// POST /api/comments/:id/like - Like a comment
+app.post("/api/comments/:id/like", likeComment);
+
+// DELETE /api/comments/:id/like - Unlike a comment
+app.delete("/api/comments/:id/like", unlikeComment);
+
+// GET /api/comments/:id/likes - Get likes for a comment
+app.get("/api/comments/:id/likes", getCommentLikes);
 
 // =======================
 // Start Server

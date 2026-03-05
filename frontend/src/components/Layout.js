@@ -74,9 +74,15 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
         {/* Logo Section */}
         <div className="h-20 flex items-center justify-between px-5 border-b border-white/10 shrink-0">
           <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${!open && "md:w-0 md:opacity-0"}`}>
-            <span className="text-2xl font-bold tracking-wide whitespace-nowrap drop-shadow-md">
-              KUVote
-            </span>
+            {/* KU Logo */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-md">
+                <span className="text-emerald-600 font-black text-sm">KU</span>
+              </div>
+              <span className="text-2xl font-bold tracking-wide whitespace-nowrap drop-shadow-md">
+                KUVote
+              </span>
+            </div>
           </div>
           
           <button
@@ -107,6 +113,7 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
           <MenuItem open={open} to={user ? "/candidates" : "/login"} icon="👥" text="ผู้สมัคร" active={location.pathname === "/candidates"} />
           <MenuItem open={open} to={user ? "/vote" : "/login"} icon="🗳️" text="ลงคะแนนเสียง" active={location.pathname === "/vote"} />
           <MenuItem open={open} to={user ? "/dashboard" : "/login"} icon="📊" text="ผลการเลือกตั้ง" active={location.pathname === "/dashboard"} />
+          <MenuItem open={open} to="/community" icon="💬" text="ชุมชน" active={location.pathname === "/community"} />
         </nav>
 
         {/* Footer Credit */}

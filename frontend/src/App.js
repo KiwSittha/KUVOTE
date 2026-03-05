@@ -8,18 +8,30 @@ import VerifyEmail from "./VerifyEmail";
 import Home from "./Home";
 import Candidates from "./Candidates";
 import Vote from "./Vote";
-import ProtectedRoute from "./components/ProtectedRoute"; // ✅ 1. นำเข้าไฟล์ที่เพิ่งสร้าง
+import ProtectedRoute from "./components/ProtectedRoute";
+
+import HomePage from "./pages/HomePage";
+import CandidatesPage from "./pages/CandidatesPage";
+import CommunityPage from "./pages/CommunityPage";
+import NewThreadPage from "./pages/NewThreadPage";
+import ThreadDetailPage from "./pages/ThreadDetailPage";
+import MatchPage from "./pages/MatchPage";
 
 function App() {
   return (
     <Routes>
-      {/* --- หน้าที่ใครๆ ก็เข้าได้ (Public) --- */}
+      {/* Public Routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Home />} />
       <Route path="/register" element={<Register />} />
       <Route path="/verify-email/:token" element={<VerifyEmail />} />
-
-      {/* --- 🔒 หน้าที่ต้อง Login ก่อนถึงจะเข้าได้ (Protected) --- */}
+      <Route path="/home" element={<HomePage />} />
+      <Route path="/community" element={<CommunityPage />} />
+      <Route path="/community/new" element={<NewThreadPage />} />
+      <Route path="/community/:threadId" element={<ThreadDetailPage />} />
+      <Route path="/match" element={<MatchPage />} />
+      
+      {/* Protected Routes */}
       <Route 
         path="/dashboard" 
         element={
@@ -47,6 +59,14 @@ function App() {
         } 
       />
 
+      <Route 
+        path="/candidates-page" 
+        element={
+          <ProtectedRoute>
+            <CandidatesPage />
+          </ProtectedRoute>
+        } 
+      />
     </Routes>
   );
 }
