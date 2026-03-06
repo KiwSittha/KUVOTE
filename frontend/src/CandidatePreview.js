@@ -10,7 +10,7 @@ function CandidatePreview() {
   const { form, policies, profilePreview } = location.state || {};
 
   const [showSuccess, setShowSuccess] = useState(false);
-  const [showDuplicate, setShowDuplicate] = useState(false);
+  const [showDuplicate, ] = useState(false);
   const [loading, setLoading] = useState(false);
 
   if (!form) {
@@ -22,34 +22,59 @@ function CandidatePreview() {
       </Layout>
     );
   }
+  const uploadImage = async (file) => {
+
+  const formData = new FormData();
+
+  formData.append("file", file);
+  formData.append("upload_preset", "kuvote");
+  formData.append("folder", "candidates");
+
+  const res = await fetch(
+    "https://api.cloudinary.com/v1_1/dz1ofnpvt/image/upload",
+    {
+      method: "POST",
+      body: formData
+    }
+  );
+
+  const data = await res.json();
+
+  return data.secure_url;
+};
 
   const handleSubmit = async () => {
-    try {
-      setLoading(true);
 
-      const res = await createCandidate({
-        ...form,
-        policies
-      });
+  try {
 
-      // กรณีสมัครซ้ำ
-      if (res?.message === "duplicate") {
-        setShowDuplicate(true);
-        setLoading(false);
-        return;
-      }
+    setLoading(true);
 
-      // สมัครสำเร็จ
-      setShowSuccess(true);
-      setLoading(false);
+    let imageUrl = null;
 
-    } catch (err) {
-      console.error(err);
-      alert("ส่งใบสมัครไม่สำเร็จ");
-      setLoading(false);
+    if (form.profileImage) {
+      imageUrl = await uploadImage(form.profileImage);
     }
-  };
 
+    await createCandidate({
+      ...form,
+      profileImage: imageUrl,
+      policies
+    });
+
+    setShowSuccess(true);
+
+  } catch (err) {
+
+    console.error(err);
+    alert("ส่งใบสมัครไม่สำเร็จ");
+
+  } finally {
+
+    setLoading(false);
+
+  }
+
+};
   return (
     <Layout>
       <CandidateA4Preview
@@ -107,7 +132,7 @@ function CandidatePreview() {
             </h1>
 
             <p className="mt-4 text-gray-700">
-              จากการตรวจสอบพบว่าท่านได้ยื่นใบสมัครไว้แล้ว
+              ท่านได้ยื่นใบสมัครไว้แล้ว
               ระบบไม่อนุญาตให้สมัครซ้ำ
             </p>
 

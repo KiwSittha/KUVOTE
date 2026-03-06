@@ -6,7 +6,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 const POSITION_LABELS = {
   OBK: "นายกองค์การบริหารนิสิต (อบก.)",
   REPRESENTATIVE: "สมาชิกสภานิสิต",
-  AddClubPresident: "นายกสโมสรนิสิต",
+  // AddClubPresident: "นายกสโมสรนิสิต",
   CLUB: "นายกสโมสรนิสิต"
 };
 
@@ -278,8 +278,12 @@ function AddCandidates() {
                     }
 
                     navigate("/candidate-preview", {
-                      state: { form, policies }
-                    });
+  state: {
+    form,
+    policies,
+    profilePreview
+  }
+});
                   }}
                 >
                   ตรวจสอบข้อมูล →

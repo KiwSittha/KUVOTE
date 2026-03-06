@@ -19,7 +19,7 @@ export async function updateCandidateStatus(id, status, rejectReason = "") {
   return await res.json();
 }
 export async function createCandidate(payload) {
-  const res = await fetch(`${API_URL}/candidates`, {  // ✅ แก้ตรงนี้
+  const res = await fetch(`${API_URL}/candidates`, {  
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

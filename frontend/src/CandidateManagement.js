@@ -3,6 +3,13 @@ import Layout from "./components/Layout";
 import { getCandidates } from "./services/candidateService";
 import { useNavigate } from "react-router-dom";
 
+const POSITION_LABELS = {
+  OBK: "นายกองค์การบริหารนิสิต (อบก.)",
+  REPRESENTATIVE: "สมาชิกสภานิสิต",
+  // AddClubPresident: "นายกสโมสรนิสิต",
+  CLUB: "นายกสโมสรนิสิต",
+};
+
 function CandidateManagement() {
   const [filter, setFilter] = useState("all");
   const [candidates, setCandidates] = useState([]);
@@ -31,25 +38,24 @@ function CandidateManagement() {
     <Layout>
       <div className="min-h-screen px-6 py-8">
         <div className="max-w-screen-2xl mx-auto space-y-8">
-
           {/* HEADER + FILTER */}
           <div className="flex items-center justify-between border-b pb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">
                 ตรวจสอบผู้สมัคร
               </h1>
-              <p className="text-slate-500 mt-1">
-                จัดการสถานะใบสมัคร
-              </p>
+              <p className="text-slate-500 mt-1">จัดการสถานะใบสมัคร</p>
             </div>
 
             <div className="flex gap-3 flex-wrap">
               <button
                 onClick={() => setFilter("all")}
                 className={`px-4 py-2 rounded font-medium 
-                  ${filter === "all"
-                    ? "bg-slate-800 text-white"
-                    : "bg-slate-200"}`}
+                  ${
+                    filter === "all"
+                      ? "bg-slate-800 text-white"
+                      : "bg-slate-200"
+                  }`}
               >
                 ทั้งหมด ({candidates.length})
               </button>
@@ -57,9 +63,11 @@ function CandidateManagement() {
               <button
                 onClick={() => setFilter("pending")}
                 className={`px-4 py-2 rounded font-medium 
-                  ${filter === "pending"
-                    ? "bg-yellow-400 text-black"
-                    : "bg-yellow-200"}`}
+                  ${
+                    filter === "pending"
+                      ? "bg-yellow-400 text-black"
+                      : "bg-yellow-200"
+                  }`}
               >
                 Pending ({countStatus("pending")})
               </button>
@@ -67,9 +75,11 @@ function CandidateManagement() {
               <button
                 onClick={() => setFilter("approved")}
                 className={`px-4 py-2 rounded font-medium 
-                  ${filter === "approved"
-                    ? "bg-green-600 text-white"
-                    : "bg-green-200"}`}
+                  ${
+                    filter === "approved"
+                      ? "bg-green-600 text-white"
+                      : "bg-green-200"
+                  }`}
               >
                 Approved ({countStatus("approved")})
               </button>
@@ -77,9 +87,11 @@ function CandidateManagement() {
               <button
                 onClick={() => setFilter("needs_revision")}
                 className={`px-4 py-2 rounded font-medium 
-                  ${filter === "needs_revision"
-                    ? "bg-red-600 text-white"
-                    : "bg-red-200"}`}
+                  ${
+                    filter === "needs_revision"
+                      ? "bg-red-600 text-white"
+                      : "bg-red-200"
+                  }`}
               >
                 Needs Revision ({countStatus("needs_revision")})
               </button>
@@ -101,23 +113,39 @@ function CandidateManagement() {
                 {filteredCandidates.map((c) => (
                   <tr
                     key={c._id}
-                    onClick={() =>
-                      navigate(`/candidate-detail/${c._id}`)
-                    }
+                    onClick={() => navigate(`/candidate-detail/${c._id}`)}
                     className="border-t hover:bg-slate-100 cursor-pointer transition"
                   >
-                    <td className="p-4">{c.name}</td>
-                    <td className="p-4">{c.position}</td>
+                    <td className="p-4 flex items-center gap-3">
+                      <img
+                        src={c.profileImage || "/default-avatar.png"}
+                        alt="profile"
+                        className="w-10 h-10 rounded-full object-cover border"
+                      />
+
+                      <span className="font-medium text-slate-800">
+                        {c.name}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      {POSITION_LABELS[c.position] || c.position}
+                    </td>
 
                     <td className="p-4">
                       <span
                         className={`px-3 py-1 rounded-full text-sm font-medium
-                          ${c.status === "pending" &&
-                            "bg-yellow-200 text-yellow-800"}
-                          ${c.status === "approved" &&
-                            "bg-green-200 text-green-800"}
-                          ${c.status === "needs_revision" &&
-                            "bg-red-200 text-red-800"}
+                          ${
+                            c.status === "pending" &&
+                            "bg-yellow-200 text-yellow-800"
+                          }
+                          ${
+                            c.status === "approved" &&
+                            "bg-green-200 text-green-800"
+                          }
+                          ${
+                            c.status === "needs_revision" &&
+                            "bg-red-200 text-red-800"
+                          }
                         `}
                       >
                         {c.status}
@@ -129,12 +157,9 @@ function CandidateManagement() {
             </table>
 
             {filteredCandidates.length === 0 && (
-              <div className="text-center py-10 text-gray-400">
-                ไม่มีข้อมูล
-              </div>
+              <div className="text-center py-10 text-gray-400">ไม่มีข้อมูล</div>
             )}
           </div>
-
         </div>
       </div>
     </Layout>
