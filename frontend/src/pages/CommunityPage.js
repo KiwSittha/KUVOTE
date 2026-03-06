@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Search, Flame, Clock, TrendingUp, BarChart3 } from "lucide-react";
+import { Plus, Search, Flame, Clock, TrendingUp, BarChart3, Home } from "lucide-react";
 import Layout from "../components/Layout";
 import ThreadCard from "../components/community/thread-card";
 import TrendingTopics from "../components/community/trending-topics";
@@ -65,6 +65,14 @@ export default function CommunityPage() {
                 <p className="mt-1 text-gray-600">Discuss and share your thoughts with peers</p>
               </div>
               <div className="flex items-center gap-3">
+                <Link
+                  to="/community"
+                  className="flex items-center gap-2 rounded-lg px-4 py-2 text-white font-medium transition-all hover:shadow-lg"
+                  style={{ backgroundColor: "#0f766e" }}
+                >
+                  <Home size={18} />
+                  <span>Community Portal</span>
+                </Link>
                 <Link
                   to="/match"
                   className="flex items-center gap-2 rounded-lg px-4 py-2 text-white font-medium transition-all hover:shadow-lg"

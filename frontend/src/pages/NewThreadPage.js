@@ -42,7 +42,7 @@ export default function NewThreadPage() {
 
       if (result.success) {
         alert("สร้างกระทู้สำเร็จ!");
-        navigate("/community");
+        navigate("/community/discussions");
       } else {
         alert("เกิดข้อผิดพลาด: " + result.error);
       }
@@ -57,7 +57,7 @@ export default function NewThreadPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <Link
-        to="/community"
+        to="/community/discussions"
         className="mb-6 inline-flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
       >
         <ArrowLeft className="h-4 w-4" />

@@ -13,6 +13,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import HomePage from "./pages/HomePage";
 import CandidatesPage from "./pages/CandidatesPage";
 import CommunityPage from "./pages/CommunityPage";
+import CommunityPortal from "./pages/CommunityPortal";
 import NewThreadPage from "./pages/NewThreadPage";
 import ThreadDetailPage from "./pages/ThreadDetailPage";
 import MatchPage from "./pages/MatchPage";
@@ -26,7 +27,8 @@ function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/verify-email/:token" element={<VerifyEmail />} />
       <Route path="/home" element={<HomePage />} />
-      <Route path="/community" element={<CommunityPage />} />
+      <Route path="/community" element={<CommunityPortal />} />
+      <Route path="/community/discussions" element={<CommunityPage />} />
       <Route path="/community/new" element={<NewThreadPage />} />
       <Route path="/community/:threadId" element={<ThreadDetailPage />} />
       <Route path="/match" element={<MatchPage />} />

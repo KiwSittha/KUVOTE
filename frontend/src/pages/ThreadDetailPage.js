@@ -170,7 +170,7 @@ export default function ThreadDetailPage() {
       <div className="mx-auto max-w-4xl px-4 py-12 text-center">
         <h1 className="text-2xl font-bold text-gray-900">{error || "Thread not found"}</h1>
         <Link
-          to="/community"
+          to="/community/discussions"
           className="mt-4 inline-flex items-center gap-1 text-sm font-medium transition-colors"
           style={{ color: KU_GREEN }}
           onMouseEnter={(e) => {
@@ -191,7 +191,7 @@ export default function ThreadDetailPage() {
     <div className="mx-auto max-w-4xl px-4 py-8">
       {/* Back Button */}
       <Link
-        to="/community"
+        to="/community/discussions"
         className="mb-6 inline-flex items-center gap-1 text-sm font-medium transition-colors"
         style={{ color: KU_GREEN }}
         onMouseEnter={(e) => {
