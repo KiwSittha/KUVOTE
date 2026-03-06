@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Layout from "./components/Layout";
+import { fetchCandidatesFromApi } from "./lib/candidates-api";
 
 function Candidates() {
   const [candidates, setCandidates] = useState([]);
@@ -11,12 +12,9 @@ function Candidates() {
   // ดึงข้อมูล
   // ==========================
   useEffect(() => {
-    fetch("http://localhost:8000/candidates")
-      .then((res) => res.json())
+    fetchCandidatesFromApi()
       .then((data) => {
-        // เรียงตามเบอร์
-        const sortedData = data.sort((a, b) => a.candidateId - b.candidateId);
-        setCandidates(sortedData);
+        setCandidates(data);
       })
       .catch((err) => console.error("Error fetching candidates:", err));
   }, []);
@@ -93,7 +91,7 @@ function Candidates() {
                  <div className="relative z-0 group-hover:scale-105 transition-transform duration-500">
                     <div className="absolute inset-0 bg-emerald-300 rounded-full blur-2xl opacity-20"></div>
                     <img
-                        src="https://cdn-icons-png.flaticon.com/512/2922/2922510.png"
+                      src={currentCandidate.profileImage || currentCandidate.image}
                         alt="candidate"
                         className="w-56 h-56 md:w-64 md:h-64 object-cover relative drop-shadow-2xl"
                     />
@@ -117,7 +115,9 @@ function Candidates() {
                       <div className="bg-slate-100 text-slate-700 px-5 py-2 rounded-lg font-medium border border-slate-200">
                         🎓 คณะ{currentCandidate.faculty}
                       </div>
-                      {/* ถ้ามีตำแหน่ง position ก็แสดงตรงนี้ได้ */}
+                      <div className="bg-emerald-50 text-emerald-700 px-5 py-2 rounded-lg font-medium border border-emerald-100">
+                        🏛 พรรค {currentCandidate.party}
+                      </div>
                   </div>
 
                   {/* ปุ่มดูนโยบาย */}
@@ -184,7 +184,7 @@ function Candidates() {
                     </div>
                     <div>
                         <h3 className="text-xl font-bold leading-tight">{currentCandidate.name}</h3>
-                        <p className="opacity-90 text-sm">คณะ{currentCandidate.faculty}</p>
+                      <p className="opacity-90 text-sm">คณะ{currentCandidate.faculty} • พรรค {currentCandidate.party}</p>
                     </div>
                  </div>
                  <button 

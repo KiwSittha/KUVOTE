@@ -262,6 +262,10 @@ async function getNextCandidateId() {
 
 app.post("/candidate", async (req, res) => {
   try {
+    if (!contract) {
+      return res.status(503).json({ message: "Blockchain service is not configured" });
+    }
+
     const { name, faculty, position, policies } = req.body;
     
     console.log(`🚀 Adding candidate: ${name} to Blockchain...`);
@@ -313,6 +317,11 @@ app.get("/candidates", async (req, res) => {
   try {
     // 1. ดึงข้อมูลผู้สมัครจาก DB
     const candidates = await db.collection("candidates").find({}).toArray();
+
+    if (!contract) {
+      const candidatesNoChain = [...candidates].sort((a, b) => (b.votes || 0) - (a.votes || 0));
+      return res.json(candidatesNoChain);
+    }
     
     // 2. 🔗 วนลูปเพื่อดึงคะแนนจริงจาก Blockchain (Real-time)
     // ใช้ Promise.all เพื่อดึงข้อมูลพร้อมกันหลายคน (จะได้เร็ว)
@@ -342,6 +351,10 @@ app.get("/candidates", async (req, res) => {
 
 app.post("/vote", async (req, res) => {
   try {
+    if (!contract) {
+      return res.status(503).json({ message: "Blockchain service is not configured" });
+    }
+
     const { email, votePin, candidateId } = req.body;
     
     // 1. ตรวจสอบ User ใน MongoDB

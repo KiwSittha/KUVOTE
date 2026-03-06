@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Search, Flame, Clock, TrendingUp } from "lucide-react";
+import { Plus, Search, Flame, Clock, TrendingUp, BarChart3 } from "lucide-react";
 import Layout from "../components/Layout";
 import ThreadCard from "../components/community/thread-card";
 import TrendingTopics from "../components/community/trending-topics";
@@ -9,7 +9,7 @@ import EmptyState from "../components/community/empty-state";
 import { useThreads } from "../lib/hooks/use-threads";
 import { useVotes } from "../lib/hooks/use-votes";
 
-const KU_GREEN = "#006633";
+const KU_GREEN = "#006643";
 const threadCategories = ["All", "General", "Politics", "Education", "Technology", "Sports", "Other"];
 const sortOptions = [
   { value: "hot", label: "Hot", icon: Flame },
@@ -19,7 +19,7 @@ const sortOptions = [
 
 export default function CommunityPage() {
   const { threads, isLoading, isHydrated, error, fetchThreads, updateThreadVotes } = useThreads();
-  const { getVote, toggleVote } = useVotes();
+  const { getVote } = useVotes();
 
   const [category, setCategory] = useState("All");
   const [sort, setSort] = useState("hot");
@@ -58,19 +58,30 @@ export default function CommunityPage() {
         {/* Header Section */}
         <div className="border-b border-gray-200 bg-white">
           <div className="mx-auto max-w-7xl px-4 py-8">
-            <div className="flex items-center justify-between mb-6">
+            {/* Title and Action Buttons */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Community Forum</h1>
                 <p className="mt-1 text-gray-600">Discuss and share your thoughts with peers</p>
               </div>
-              <Link
-                to="/community/new"
-                className="flex items-center gap-2 rounded-lg px-4 py-2 text-white font-medium transition-all hover:shadow-lg"
-                style={{ backgroundColor: KU_GREEN }}
-              >
-                <Plus size={18} />
-                <span>Create Thread</span>
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link
+                  to="/match"
+                  className="flex items-center gap-2 rounded-lg px-4 py-2 text-white font-medium transition-all hover:shadow-lg"
+                  style={{ backgroundColor: KU_GREEN }}
+                >
+                  <BarChart3 size={18} />
+                  <span>Take the Quiz</span>
+                </Link>
+                <Link
+                  to="/community/new"
+                  className="flex items-center gap-2 rounded-lg px-4 py-2 text-white font-medium transition-all hover:shadow-lg"
+                  style={{ backgroundColor: KU_GREEN }}
+                >
+                  <Plus size={18} />
+                  <span>Create Thread</span>
+                </Link>
+              </div>
             </div>
 
             {/* Search Bar */}
