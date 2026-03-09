@@ -1,24 +1,38 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState,useEffect } from "react";
 
 export default function Login() {
+  useEffect(() => {
+    document.title = "เข้าสู่ระบบ | KUVote";
+  }, []);
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // ✅ เพิ่ม State สำหรับซ่อน/แสดงรหัสผ่าน
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+
+    // ✅ 1. ตรวจสอบอีเมล @ku.th ก่อนส่ง
+    const emailValue = email.trim().toLowerCase();
+    if (!emailValue.endsWith("@ku.th")) {
+        setError("กรุณาใช้อีเมลมหาวิทยาลัย (@ku.th) เท่านั้น");
+        return; // หยุดการทำงาน ไม่ส่งไป Server
+    }
+
     setLoading(true);
 
     try {
       const res = await fetch("http://localhost:8000/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, loginPassword: password }),
+        body: JSON.stringify({ email: emailValue, loginPassword: password }),
       });
 
       const data = await res.json();
@@ -50,7 +64,7 @@ export default function Login() {
       {/* ================= Main Card ================= */}
       <div className="relative z-10 bg-white/95 w-full max-w-[420px] p-6 md:p-10 rounded-3xl shadow-2xl shadow-green-900/20 border border-white/50 backdrop-blur-xl animate-fade-in-up">
         
-        {/* ปุ่มย้อนกลับหน้าแรก (เพิ่มใหม่) */}
+        {/* ปุ่มย้อนกลับหน้าแรก */}
         <Link to="/" className="absolute top-4 left-4 text-slate-400 hover:text-emerald-600 transition-colors p-2 rounded-full hover:bg-slate-100">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
@@ -101,6 +115,8 @@ export default function Login() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
+            {/* ข้อความช่วยเตือน */}
+            <p className="text-[10px] text-slate-400 ml-1">ต้องลงท้ายด้วย @ku.th เท่านั้น</p>
           </div>
 
           {/* Password Input */}
@@ -113,13 +129,36 @@ export default function Login() {
                 </svg>
               </div>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"} // ✅ เปลี่ยน type ได้
                 required
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-slate-800 placeholder:text-slate-400 text-sm md:text-base"
+                className="w-full pl-10 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-slate-800 placeholder:text-slate-400 text-sm md:text-base"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+              
+              {/* ✅ ปุ่มรูปตาแสดง/ซ่อนรหัส */}
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-emerald-600 focus:outline-none"
+              >
+                {showPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z" /><path fillRule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113zM17.25 12a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" clipRule="evenodd" /></svg>
+                ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M3.53 2.47a.75.75 0 00-1.06 1.06l18 18a.75.75 0 101.06-1.06l-18-18zM22.676 12.553a11.249 11.249 0 01-2.631 4.31l-3.099-3.099a5.25 5.25 0 00-6.71-6.71L7.759 4.577a11.217 11.217 0 014.242-.827c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113z" /><path d="M15.75 12c0 .18-.013.357-.037.53l-4.244-4.243A3.75 3.75 0 0115.75 12zM12.53 15.713l-4.243-4.244a3.75 3.75 0 004.243 4.243z" /><path d="M6.75 12c0-.619.107-1.213.304-1.764l-3.1-3.1a11.25 11.25 0 00-2.63 4.31c-.12.362-.12.752 0 1.114 1.489 4.467 5.702 7.69 10.675 7.69 1.5 0 2.933-.294 4.242-.827l-2.477-2.477A5.25 5.25 0 016.75 12z" /></svg>
+                )}
+              </button>
+            </div>
+
+            {/* ปุ่มลืมรหัสผ่าน */}
+            <div className="flex justify-end pt-1">
+                <Link 
+                    to="/forgot-password" 
+                    className="text-xs font-medium text-slate-500 hover:text-emerald-600 transition-colors"
+                >
+                    ลืมรหัสผ่าน?
+                </Link>
             </div>
           </div>
 
@@ -129,7 +168,7 @@ export default function Login() {
             disabled={loading}
             className={`
               w-full py-3.5 px-4 rounded-xl text-white font-bold text-base md:text-lg shadow-lg shadow-emerald-200/50
-              transition-all duration-300 transform
+              transition-all duration-300 transform mt-2
               ${loading 
                 ? "bg-slate-400 cursor-not-allowed" 
                 : "bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 hover:-translate-y-1 hover:shadow-xl"

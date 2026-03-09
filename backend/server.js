@@ -9,10 +9,23 @@ const nodemailer = require("nodemailer");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 
+// ✅ นำเข้า module สำหรับทำระบบแชท (Socket.io) 
+const http = require("http");
+const { Server } = require("socket.io");
+
 // ✅ นำเข้า contract จากไฟล์ blockchain.js ที่แก้ไปก่อนหน้านี้
 const { contract } = require("./blockchain"); 
 
 const app = express();
+
+// ✅ สร้าง HTTP server และกำหนด Socket.io (เพิ่มใหม่สำหรับระบบแชท)
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*", // หรือใส่ URL ของ Frontend เช่น "http://localhost:3000"
+        methods: ["GET", "POST", "PUT", "DELETE"]
+    }
+});
 
 app.use(cors({
     origin: "*",
@@ -109,7 +122,7 @@ transporter.verify((error, success) => {
 // =======================
 
 app.get("/", (req, res) => {
-  res.send("🚀 KUVote API Server with REAL BLOCKCHAIN is Running!");
+  res.send("🚀 KUVote API Server with REAL BLOCKCHAIN and CHAT is Running!");
 });
 
 // =======================
@@ -155,16 +168,48 @@ app.post("/register/users", async (req, res) => {
     const verifyLink = `${frontendUrl}/verify-email/${verifyToken}`;
 
     const emailHtml = `
-      <div style="font-family: sans-serif; background-color: #f4f4f5; padding: 40px;">
-        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-          <div style="background-color: #10B981; padding: 20px; text-align: center; color: white;">
-            <h1>KU Vote System</h1>
+      <div style="background-color: #f0fdf4; padding: 40px 15px; font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+          
+          <div style="background-color: #047857; padding: 35px 20px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 900; letter-spacing: 1px;">
+              KU<span style="color: #6ee7b7;">Vote</span>
+            </h1>
+            <p style="color: #a7f3d0; margin: 5px 0 0 0; font-size: 14px;">ระบบเลือกตั้งประธานนิสิต</p>
           </div>
-          <div style="padding: 30px; text-align: center;">
-            <h2>ยืนยันการลงทะเบียน</h2>
-            <p>กรุณากดปุ่มด้านล่างเพื่อยืนยันอีเมลของคุณ</p>
-            <a href="${verifyLink}" style="display: inline-block; background-color: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0;">ยืนยันอีเมลทันที</a>
+
+          <div style="padding: 40px 30px; text-align: center; color: #334155;">
+            <div style="font-size: 48px; margin-bottom: 20px;">🎉</div>
+            <h2 style="margin-top: 0; color: #0f172a; font-size: 24px;">ยินดีต้อนรับสู่ KUVote</h2>
+            
+            <p style="font-size: 16px; color: #475569; margin-bottom: 30px;">
+              ขอบคุณสำหรับการสมัครใช้งานระบบเลือกตั้ง<br>
+              เพื่อให้การลงทะเบียนของคุณเสร็จสมบูรณ์ กรุณายืนยันตัวตนโดยคลิกที่ปุ่มด้านล่าง
+            </p>
+
+            <a href="${verifyLink}" style="display: inline-block; background-color: #10b981; color: #ffffff; padding: 16px 36px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 16px; letter-spacing: 0.5px; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.25);">
+              ยืนยันอีเมลทันที
+            </a>
+
+            <p style="font-size: 14px; color: #ef4444; margin-top: 25px; font-weight: bold;">
+              ⏳ ลิงก์นี้จะหมดอายุภายใน 10 นาที
+            </p>
+
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 40px 0 25px;">
+
+            <p style="font-size: 13px; color: #64748b; margin: 0; text-align: left; background-color: #f8fafc; padding: 15px; border-radius: 8px;">
+              <strong>⚠️ หากคุณไม่ได้เป็นผู้ลงทะเบียน:</strong><br>
+              กรุณาละเว้นอีเมลฉบับนี้ ข้อมูลการสมัครที่ยังไม่ยืนยันจะถูกลบออกจากระบบโดยอัตโนมัติเมื่อลิงก์หมดอายุ
+            </p>
           </div>
+
+          <div style="background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+            <p style="font-size: 12px; color: #94a3b8; margin: 0;">
+              © 2026 KU Vote System. Kasetsart University.<br>
+              อีเมลฉบับนี้เป็นการแจ้งเตือนอัตโนมัติ กรุณาอย่าตอบกลับ
+            </p>
+          </div>
+
         </div>
       </div>
     `;
@@ -219,14 +264,23 @@ app.post("/login", async (req, res) => {
 
     const token = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
-    res.json({ token, user: { email: user.email, faculty: user.faculty, hasVoted: user.hasVoted } });
+    res.json({ 
+  token, 
+  user: { 
+    email: user.email, 
+    faculty: user.faculty, 
+    hasVoted: user.hasVoted, 
+    role: user.role || "user" // ✅ เพิ่มบรรทัดนี้ เพื่อส่ง role กลับไปด้วย (ถ้าไม่มีให้ถือว่าเป็น user)
+  } 
+});
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
+
 // =======================
-// 4. Candidates
+// 4. Candidates (อัปเดตเพิ่ม Weights)
 // =======================
 
 async function getNextCandidateId() {
@@ -235,51 +289,38 @@ async function getNextCandidateId() {
     { $inc: { seq: 1 } },
     { upsert: true, returnDocument: "after" }
   );
-  // แก้ตรงนี้: ตัด .value ทิ้งไปเลย หรือใส่เผื่อไว้ทั้งสองแบบ
   return result.seq || result.value?.seq; 
 }
 
-app.post("/candidate", async (req, res) => {
+app.post("/candidates", async (req, res) => { // ✅ แก้เป็นพหูพจน์ /candidates ให้ตรงกับ Service
   try {
-    const { name, faculty, position, policies } = req.body;
-    
-    console.log(`🚀 Adding candidate: ${name} to Blockchain...`);
+    // รับค่าทั้งหมดที่ส่งมาจากหน้า AddCandidates / CandidatePreview
+    const { 
+      studentId, name, nickname, faculty, major, year, email, 
+      position, partyName, slogan, phone, policies, weights, status ,
+      profileImage
+    } = req.body;
 
-    // ==========================================
-    // 🔗 1. ส่งคำสั่งไปสร้างบน Blockchain ก่อน
-    // ==========================================
-    
-    // เรียกฟังก์ชัน addCandidate ใน Smart Contract
-    const tx = await contract.addCandidate(name);
-    
-    console.log(`⏳ Transaction sent! Hash: ${tx.hash}`);
-    const receipt = await tx.wait(); // รอจนเสร็จ
-    
-    console.log(`✅ Block confirmed! Candidate added.`);
-
-    // ==========================================
-    // 💾 2. บันทึกลง MongoDB
-    // ==========================================
-
-    // เราจะใช้ Candidate ID ตามลำดับที่ Blockchain สร้างให้ (หรือใช้ลำดับที่เราจัดการเองก็ได้)
-    // แต่เพื่อความง่าย เราจะใช้ getNextCandidateId() เหมือนเดิม
     const candidateId = await getNextCandidateId(); 
 
+    // 💾 บันทึกลง MongoDB ก่อน (สถานะ pending) ยังไม่นำขึ้น Blockchain
     await db.collection("candidates").insertOne({
       candidateId,
-      name,
-      faculty,
-      position,
+      studentId, name, nickname, faculty, major, year, email,
+      position, partyName, slogan, phone,
+      profileImage,
       policies: policies || [],
+      weights: weights || {},
       votes: 0,
+      status: status || "pending", // ให้เป็น pending เสมอตอนสมัคร
+      rejectReason: "",
       createdAt: new Date(),
-      txHash: tx.hash // เก็บหลักฐานการสร้างไว้ด้วย
+      txHash: null // ยังไม่มี TxHash เพราะยังไม่ขึ้น Blockchain
     });
 
     res.status(201).json({ 
-        message: "เพิ่มผู้สมัครสำเร็จทั้งใน Database และ Blockchain", 
-        candidateId,
-        txHash: tx.hash
+        message: "บันทึกข้อมูลการสมัครสำเร็จ กรุณารอแอดมินตรวจสอบ", 
+        candidateId
     });
 
   } catch (err) {
@@ -288,25 +329,30 @@ app.post("/candidate", async (req, res) => {
   }
 });
 
+// ====================================================
+// 📌 นำโค้ดนี้ไปวางต่อจาก app.post("/candidates") จบ
+// ====================================================
+
 app.get("/candidates", async (req, res) => {
   try {
-    // 1. ดึงข้อมูลผู้สมัครจาก DB
     const candidates = await db.collection("candidates").find({}).toArray();
     
-    // 2. 🔗 วนลูปเพื่อดึงคะแนนจริงจาก Blockchain (Real-time)
-    // ใช้ Promise.all เพื่อดึงข้อมูลพร้อมกันหลายคน (จะได้เร็ว)
+    // วนลูปเพื่อดึงคะแนนจริงจาก Blockchain
     const candidatesWithVotes = await Promise.all(candidates.map(async (c) => {
         try {
-            // เรียก Smart Contract: getVoteCount(id)
-            const votesBigInt = await contract.getVoteCount(c.candidateId);
-            return { ...c, votes: Number(votesBigInt) }; // แปลง BigInt เป็น Number
+            // 🛑 ดึงคะแนนจาก Blockchain เฉพาะคนที่ "ผ่านการอนุมัติ (approved)" แล้วเท่านั้น
+            if (c.status === "approved" && c.txHash) {
+                const votesBigInt = await contract.getVoteCount(c.candidateId);
+                return { ...c, votes: Number(votesBigInt) };
+            }
+            return { ...c, votes: 0 }; // ถ้ายังไม่ approved คะแนนโชว์เป็น 0 ไปก่อน
         } catch (error) {
             console.error(`Error fetching votes for candidate ${c.candidateId}:`, error.message);
-            return { ...c, votes: 0 }; // ถ้าดึงไม่ได้ ให้โชว์ 0 ไปก่อน
+            return { ...c, votes: 0 };
         }
     }));
     
-    // เรียงตามคะแนน
+    // เรียงลำดับจากคะแนนสูงสุดไปต่ำสุด
     candidatesWithVotes.sort((a, b) => b.votes - a.votes);
     
     res.json(candidatesWithVotes);
@@ -316,7 +362,11 @@ app.get("/candidates", async (req, res) => {
 });
 
 // =======================
-// 🔗 5. BLOCKCHAIN VOTING SYSTEM (แก้ไขใหม่)
+// 🔗 5. BLOCKCHAIN VOTING SYSTEM (โค้ดเดิมของคุณอยู่ตรงนี้)
+// =======================
+
+// =======================
+// 🔗 5. BLOCKCHAIN VOTING SYSTEM (เหมือนเดิม)
 // =======================
 
 app.post("/vote", async (req, res) => {
@@ -386,7 +436,7 @@ app.post("/vote", async (req, res) => {
 });
 
 // =======================
-// 📊 Statistics
+// 📊 Statistics (เหมือนเดิม)
 // =======================
 
 app.get("/stats/vote-summary", async (req, res) => {
@@ -414,12 +464,424 @@ app.get("/stats/vote-summary", async (req, res) => {
   }
 });
 
+// =======================
+// 💬 Socket.io Chat System (แก้ไขให้บันทึกและดึงข้อมูลได้)
+// =======================
+
+// 1. สร้าง API ให้ฝั่ง Frontend ดึงประวัติแชทเก่าไปแสดง
+app.get("/chat/history/:email", async (req, res) => {
+  try {
+    const email = req.params.email;
+    // ดึงข้อความของ email นี้จาก MongoDB เรียงตามเวลา
+    const messages = await db.collection("messages").find({ room: email }).sort({ timestamp: 1 }).toArray();
+    res.json(messages);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+io.on('connection', (socket) => {
+  console.log(`💬 User Connected to Chat: ${socket.id}`);
+
+  socket.on('join_room', (roomId) => {
+    socket.join(roomId);
+    console.log(`💬 User ID: ${socket.id} joined room: ${roomId}`);
+  });
+
+  // 2. เมื่อมีการส่งข้อความ ให้บันทึกลง MongoDB ด้วย
+  socket.on('send_message', async (data) => {
+    try {
+      // บันทึกลง Collection ชื่อ "messages"
+      await db.collection("messages").insertOne({
+        room: data.room,
+        author: data.author,
+        message: data.message,
+        time: data.time,
+        timestamp: new Date() // เก็บเวลาจริงไว้เรียงลำดับ
+      });
+
+      // กระจายข้อความให้ทุกคนในห้อง
+      io.to(data.room).emit('receive_message', data);
+    } catch (error) {
+      console.error("❌ Save Message Error:", error);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`🔌 User Disconnected from Chat: ${socket.id}`);
+  });
+});
+
+// 3. API สำหรับดึงรายชื่อผู้ใช้ทั้งหมดที่เคยแชทเข้ามา (สำหรับ Admin)
+app.get("/chat/users", async (req, res) => {
+  try {
+    // ใช้ .distinct() เพื่อดึงชื่อ room (อีเมล) ที่ไม่ซ้ำกันทั้งหมดจาก collection messages
+    const users = await db.collection("messages").distinct("room");
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// =======================
+// ลืมรหัสผ่าน (Forgot Password)
+// =======================
+app.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // ตรวจสอบรูปแบบอีเมล
+    if (!email || !email.trim().toLowerCase().endsWith("@ku.th")) {
+        return res.status(400).json({ message: "กรุณาใช้อีเมลมหาวิทยาลัย (@ku.th) เท่านั้น" });
+    }
+
+    const user = await db.collection("users").findOne({ email: email.trim().toLowerCase() });
+
+    // ถ้าไม่เจอ แจ้ง Error
+    if (!user) {
+      console.log(`⚠️ FORGOT_PASS_FAILED: ${email} (Not Found)`); // ✅ เปลี่ยน saveLog เป็น console.log
+      return res.status(404).json({ message: "ไม่พบอีเมลนี้ในระบบ กรุณาตรวจสอบความถูกต้อง" });
+    }
+
+    const secret = process.env.JWT_SECRET + user.loginPassword;
+    const token = jwt.sign({ userId: user._id, email: user.email }, secret, { expiresIn: "15m" });
+    
+    const frontendUrl = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.replace(/\/$/, "") : "http://localhost:3000";
+    const resetLink = `${frontendUrl}/reset-password/${user._id}/${token}`;
+
+    // ✅ เปลี่ยน sendEmailViaBrevo มาใช้ transporter.sendMail ที่เรามีอยู่ด้านบน
+    await transporter.sendMail({
+      from: `"KUVote System" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: "🔒 รีเซ็ตรหัสผ่าน - KUVote",
+      html: `
+        <div style="background-color: #f0fdf4; padding: 40px 15px; font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+            
+            <div style="background-color: #047857; padding: 35px 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 900; letter-spacing: 1px;">
+                KU<span style="color: #6ee7b7;">Vote</span>
+              </h1>
+              <p style="color: #a7f3d0; margin: 5px 0 0 0; font-size: 14px;">ระบบเลือกตั้งประธานนิสิต</p>
+            </div>
+
+            <div style="padding: 40px 30px; text-align: center; color: #334155;">
+              <div style="font-size: 48px; margin-bottom: 20px;">🔐</div>
+              <h2 style="margin-top: 0; color: #0f172a; font-size: 24px;">คำขอรีเซ็ตรหัสผ่าน</h2>
+              
+              <p style="font-size: 16px; color: #475569; margin-bottom: 30px;">
+                สวัสดีครับ,<br><br>
+                เราได้รับคำขอให้ตั้งรหัสผ่านใหม่สำหรับบัญชี <strong>${user.email}</strong><br>
+                กรุณาคลิกที่ปุ่มด้านล่างนี้เพื่อดำเนินการต่อ
+              </p>
+
+              <a href="${resetLink}" style="display: inline-block; background-color: #10b981; color: #ffffff; padding: 16px 36px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 16px; letter-spacing: 0.5px; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.25);">
+                ตั้งรหัสผ่านใหม่
+              </a>
+
+              <p style="font-size: 14px; color: #ef4444; margin-top: 25px; font-weight: bold;">
+                ⏳ ลิงก์นี้จะหมดอายุภายใน 15 นาที
+              </p>
+
+              <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 40px 0 25px;">
+
+              <p style="font-size: 13px; color: #64748b; margin: 0; text-align: left; background-color: #f8fafc; padding: 15px; border-radius: 8px;">
+                <strong>⚠️ หากคุณไม่ได้เป็นผู้ขอรีเซ็ตรหัสผ่าน:</strong><br>
+                คุณสามารถละเว้นและลบอีเมลฉบับนี้ได้เลย รหัสผ่านของคุณจะยังคงปลอดภัยและไม่มีการเปลี่ยนแปลงใดๆ
+              </p>
+            </div>
+
+            <div style="background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="font-size: 12px; color: #94a3b8; margin: 0;">
+                © 2026 KU Vote System. Kasetsart University.<br>
+                อีเมลฉบับนี้เป็นการแจ้งเตือนอัตโนมัติ กรุณาอย่าตอบกลับ
+              </p>
+            </div>
+
+          </div>
+        </div>
+      `,
+    });
+    
+    console.log(`✅ FORGOT_PASS_REQ: ${user.email}`); // ✅ เปลี่ยน saveLog เป็น console.log
+    res.json({ message: "ส่งลิงก์รีเซ็ตรหัสผ่านเรียบร้อยแล้ว" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// =======================
+// ตั้งรหัสผ่านใหม่ (Reset Password)
+// =======================
+app.post("/reset-password/:id/:token", async (req, res) => {
+  const { id, token } = req.params;
+  const { newPassword } = req.body;
+
+  try {
+    const user = await db.collection("users").findOne({ _id: new ObjectId(id) });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const secret = process.env.JWT_SECRET + user.loginPassword;
+    try { 
+        jwt.verify(token, secret); 
+    } catch (err) { 
+        return res.status(400).json({ message: "ลิงก์หมดอายุ หรือไม่ถูกต้อง" }); 
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await db.collection("users").updateOne({ _id: new ObjectId(id) }, { $set: { loginPassword: hashedPassword } });
+
+    console.log(`✅ RESET_PASS_SUCCESS: ${user.email}`); // ✅ เปลี่ยน saveLog
+    res.json({ message: "เปลี่ยนรหัสผ่านสำเร็จ" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// =======================
+// เปลี่ยนรหัสผ่าน (Change Password - สำหรับคนที่ล็อกอินอยู่แล้ว)
+// =======================
+app.put("/user/change-password", async (req, res) => {
+  try {
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.split(" ")[1];
+    if (!token) return res.status(401).json({ message: "No token provided" });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await db.collection("users").findOne({ _id: new ObjectId(decoded.userId) });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const isMatch = await bcrypt.compare(currentPassword, user.loginPassword);
+    if (!isMatch) {
+      console.log(`⚠️ CHANGE_PASS_FAILED: ${user.email} (Wrong Current Password)`); // ✅ เปลี่ยน saveLog
+      return res.status(400).json({ message: "รหัสผ่านปัจจุบันไม่ถูกต้อง" });
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await db.collection("users").updateOne({ _id: new ObjectId(decoded.userId) }, { $set: { loginPassword: hashedNewPassword } });
+
+    console.log(`✅ CHANGE_PASS_SUCCESS: ${user.email}`); // ✅ เปลี่ยน saveLog
+    res.json({ message: "เปลี่ยนรหัสผ่านสำเร็จ" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// =======================
+// 🎯 ระบบแนะนำผู้สมัคร (แบบให้คะแนนความสำคัญ 1-5)
+// =======================
+app.post("/api/recommend", async (req, res) => {
+  try {
+    // รับค่าจาก Frontend เป็น Object ที่เก็บคะแนน 1-5
+    // ตัวอย่าง: { "academic_review": 5, "skill_workshop": 3, "equipment_borrow": 1, "swap_market": 4 }
+    const { ratings } = req.body; 
+
+    if (!ratings || Object.keys(ratings).length === 0) {
+      return res.status(400).json({ error: "กรุณาให้คะแนนความสำคัญของนโยบาย" });
+    }
+
+    const candidates = await db.collection("candidates").find({}).toArray();
+
+    if (!candidates || candidates.length === 0) {
+       return res.status(404).json({ message: "ยังไม่มีข้อมูลผู้สมัครในระบบ" });
+    }
+
+    const results = candidates.map(cand => {
+      let totalScore = 0;
+      let maxPossibleScore = 0;
+
+      // วนลูปคำนวณคะแนนตามที่ผู้ใช้ให้ Rating มาทีละหัวข้อ
+      for (const [policyKey, userRating] of Object.entries(ratings)) {
+        
+        // ดึงน้ำหนักนโยบายของผู้สมัคร (0.0 - 1.0) ถ้าผู้สมัครไม่มีข้อมูลให้ถือเป็น 0
+        const candWeight = (cand.weights && cand.weights[policyKey] !== undefined)
+          ? parseFloat(cand.weights[policyKey])
+          : 0.0;
+
+        // เอาความสำคัญที่ผู้ใช้เลือก (1-5) คูณกับ ความเข้มข้นนโยบายผู้สมัคร (0.0-1.0)
+        totalScore += (userRating * candWeight);
+        
+        // คำนวณคะแนนเต็มที่เป็นไปได้ (ถ้าผู้สมัครคนนั้นมีน้ำหนัก 1.0 ในข้อนี้)
+        maxPossibleScore += (userRating * 1.0); 
+      }
+
+      // แปลงเป็นเปอร์เซ็นต์
+      let matchPercentage = 0;
+      if (maxPossibleScore > 0) {
+        matchPercentage = ((totalScore / maxPossibleScore) * 100).toFixed(2);
+      }
+
+      return {
+        candidateId: cand.candidateId,
+        name: cand.name,
+        faculty: cand.faculty,
+        policies: cand.policies || [],
+        matchScore: parseFloat(matchPercentage)
+      };
+    });
+
+    // เรียงลำดับจากคะแนนตรงใจสูงสุดไปต่ำสุด
+    results.sort((a, b) => b.matchScore - a.matchScore);
+
+    res.json(results);
+  } catch (err) {
+    console.error("❌ Recommend Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// =======================
+// 👥 ระบบจัดการผู้ใช้ (Admin: User Management) แบบปลอดภัย 🔒
+// =======================
+
+// 🛡️ Middleware: ด่านตรวจจับเฉพาะ Admin
+const verifyAdmin = async (req, res, next) => {
+  try {
+    // 1. ดึง Token จาก Header
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.split(" ")[1];
+    
+    if (!token) {
+      return res.status(401).json({ message: "Access Denied: ไม่พบ Token ยืนยันตัวตน" });
+    }
+
+    // 2. ถอดรหัส Token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // 3. ไปค้นหา User ใน Database ว่ามีอยู่จริงไหม และเป็น Admin ไหม
+    const user = await db.collection("users").findOne({ _id: new ObjectId(decoded.userId) });
+
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ message: "Forbidden: สิทธิ์การเข้าถึงถูกปฏิเสธ (เฉพาะ Admin เท่านั้น)" });
+    }
+
+    // ผ่านด่านตรวจ -> อนุญาตให้ไปทำงานต่อได้
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid Token: เซสชั่นหมดอายุหรือไม่ถูกต้อง" });
+  }
+};
+
+// 1. ดึงข้อมูลผู้ใช้ทั้งหมด (🔐 เพิ่ม verifyAdmin เข้าไปตรงนี้)
+app.get("/admin/users", verifyAdmin, async (req, res) => {
+  try {
+    const users = await db.collection("users").find({}).sort({ createdAt: -1 }).toArray();
+    const safeUsers = users.map(u => ({
+      _id: u._id,
+      email: u.email,
+      faculty: u.faculty,
+      role: u.role || "user",
+      isVerified: u.isVerified,
+      hasVoted: u.hasVoted,
+      createdAt: u.createdAt
+    }));
+    res.json(safeUsers);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2. อัปเดตข้อมูลผู้ใช้ (ล็อกให้แก้ได้แค่ คณะ กับ บทบาท เท่านั้น)
+app.put("/admin/users/:id", verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // ✅ รับมาแค่ faculty และ role เท่านั้น ไม่สนใจ isVerified และ hasVoted
+    const { faculty, role } = req.body;
+
+    const result = await db.collection("users").updateOne(
+      { _id: new ObjectId(id) },
+      { 
+        $set: { 
+          faculty, 
+          role 
+        } 
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: "ไม่พบผู้ใช้ที่ต้องการแก้ไข" });
+    }
+
+    res.json({ message: "อัปเดตข้อมูลคณะและบทบาทสำเร็จ" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// =======================
+// 👤 ระบบจัดการผู้สมัครรายบุคคล (Approve / Reject)
+// =======================
+
+// 📌 4.3 ดึงข้อมูลผู้สมัคร "รายบุคคล" (สำหรับหน้า Detail)
+app.get("/candidates/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    let query = id.length === 24 ? { _id: new ObjectId(id) } : { candidateId: parseInt(id) };
+
+    const candidate = await db.collection("candidates").findOne(query);
+    if (!candidate) return res.status(404).json({ message: "ไม่พบข้อมูลผู้สมัครนี้" });
+
+    res.json(candidate);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 📌 4.4 แอดมินอัปเดตสถานะ (Approve / Reject)
+app.put("/candidates/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { status, rejectReason } = req.body;
+    let query = id.length === 24 ? { _id: new ObjectId(id) } : { candidateId: parseInt(id) };
+
+    const candidate = await db.collection("candidates").findOne(query);
+    if (!candidate) return res.status(404).json({ message: "ไม่พบผู้สมัครที่ต้องการอัปเดต" });
+
+    let txHash = candidate.txHash;
+
+    // 🔥 KEY LOGIC: ถ้าแอดมินกด "Approve" และยังไม่เคยมีบน Blockchain
+    if (status === "approved" && !txHash) {
+       console.log(`🚀 Admin Approved: Adding [${candidate.name}] to Blockchain...`);
+       
+       const tx = await contract.addCandidate(candidate.name);
+       console.log(`⏳ Transaction sent! Hash: ${tx.hash}`);
+       
+       await tx.wait(); // รอจนกว่า Blockchain จะยืนยันการเพิ่มข้อมูล
+       console.log(`✅ Block confirmed! Candidate added to Blockchain.`);
+       
+       txHash = tx.hash; // เก็บหลักฐาน Transaction ไว้ในตัวแปร
+    }
+
+    // อัปเดตสถานะ (และ TxHash) ลงใน MongoDB
+    const result = await db.collection("candidates").updateOne(
+      query,
+      { 
+        $set: { 
+          status: status, 
+          rejectReason: rejectReason || "",
+          txHash: txHash
+        } 
+      }
+    );
+
+    res.json({ message: `อัปเดตสถานะเป็น ${status} สำเร็จ!`, txHash });
+  } catch (err) {
+    console.error("PUT Candidate Status Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // =======================
 // Start Server
 // =======================
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => {
+
+// ✅ เปลี่ยนจาก app.listen เป็น server.listen เพื่อให้ Socket.io ทำงานคู่กับ Express ได้
+server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`⛓️  Blockchain Mode: ONLINE (Sepolia)`);
+  console.log(`💬 Chat System: ONLINE (Socket.io)`);
 });

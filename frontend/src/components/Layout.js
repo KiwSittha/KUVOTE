@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import ChatWidget from "../ChatWidget"; // ✅ 1. นำเข้า ChatWidget (ปรับ path ให้ตรงกับที่อยู่ไฟล์)
 
 export default function Layout({ children, fullScreen = false, hideHeader = false, hideSidebar = false }) {
   const [open, setOpen] = useState(window.innerWidth > 768);
@@ -43,17 +44,22 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
     navigate("/login");
   };
 
+  // ✅ เช็คจาก role ที่ส่งมาจาก Database ล้วนๆ
+  const isAdmin = user && user.role === "admin";
+
   // ถ้าเป็นหน้า Full Screen (เช่น Dashboard) ให้แสดงแบบไม่มี Sidebar และ Header
   if (fullScreen) {
     return (
-      <div className="w-full h-screen overflow-auto m-0 p-0">
+      <div className="w-full h-screen overflow-auto m-0 p-0 relative">
         {children}
+        {/* ✅ 2. ใส่ ChatWidget ในหน้า Full Screen (ซ่อนถ้าเป็น Admin) */}
+        {user && user.email && !isAdmin && <ChatWidget userEmail={user.email} />}
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 font-sans overflow-hidden">
+    <div className="flex h-screen w-full bg-slate-50 font-sans overflow-hidden relative">
       
       {/* Mobile Backdrop */}
       <div 
@@ -105,8 +111,34 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
         <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto">
           <MenuItem open={open} to="/" icon="🏠" text="หน้าหลัก" active={location.pathname === "/"} />
           <MenuItem open={open} to={user ? "/candidates" : "/login"} icon="👥" text="ผู้สมัคร" active={location.pathname === "/candidates"} />
+          
+          {/* ✅ เพิ่มเมนู ระบบแนะนำ เข้าไปตรงนี้ครับ */}
+          <MenuItem open={open} to={user ? "/recommend" : "/login"} icon="🎯" text="ค้นหาคนที่ใช่" active={location.pathname === "/recommend"} />
+          
           <MenuItem open={open} to={user ? "/vote" : "/login"} icon="🗳️" text="ลงคะแนนเสียง" active={location.pathname === "/vote"} />
           <MenuItem open={open} to={user ? "/dashboard" : "/login"} icon="📊" text="ผลการเลือกตั้ง" active={location.pathname === "/dashboard"} />
+          <MenuItem open={open} to={user ? "/select-position" : "/login"} icon="➕" text="สมัคร" active={location.pathname === "/select-position"} />
+          {/* เมนูสำหรับ Admin */}
+          {isAdmin && (
+            <>
+            <MenuItem 
+              open={open} 
+              to="/admin-chat" 
+              icon="💬" 
+              text="ตอบแชท (Admin)" 
+              active={location.pathname === "/admin-chat"} 
+            />
+            <MenuItem open={open} to="/admin/users" icon="⚙️" text="จัดการผู้ใช้" active={location.pathname === "/admin/users"} />
+            <MenuItem 
+              open={open} 
+              to="/candidate-management" 
+              icon="🛠️" 
+              text="ตรวจสอบผู้สมัคร" 
+              active={location.pathname === "/candidate-management"} 
+            />
+            </>
+            
+          )}
         </nav>
 
         {/* Footer Credit */}
@@ -160,15 +192,15 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
                         `}>
                              <span className={`w-2 h-2 rounded-full ${user.hasVoted ? "bg-slate-400" : "bg-amber-500 animate-pulse"}`}></span>
                              <span className="text-xs md:text-sm whitespace-nowrap">
-                                {user.hasVoted ? "ใช้สิทธิ์แล้ว" : "ยังไม่ใช้สิทธิ์"}
+                                {isAdmin ? "สถานะ Admin" : (user.hasVoted ? "ใช้สิทธิ์แล้ว" : "ยังไม่ใช้สิทธิ์")}
                              </span>
                         </div>
 
                         {/* ชื่ออีเมล/คณะ: ซ่อนในมือถือ เพื่อประหยัดที่ (hidden md:block) */}
                         <div className="hidden md:flex items-center gap-2 mt-1">
                             <span className="text-xs text-slate-500">{user.email}</span>
-                            <span className="text-[10px] text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                                {user.faculty}
+                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${isAdmin ? 'text-blue-600 bg-blue-50 border-blue-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}>
+                                {isAdmin ? "ADMIN" : user.faculty}
                             </span>
                         </div>
                     </div>
@@ -207,9 +239,13 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
         )}
 
         {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto scroll-smooth">
+        <main className="flex-1 overflow-y-auto scroll-smooth relative">
           {children}
         </main>
+        
+        {/* ✅ 3. แทรก ChatWidget ลอยอยู่ล่างขวาของทุกหน้าที่ถูกครอบด้วย Layout นี้ (ซ่อนถ้าเป็น Admin) */}
+        {user && user.email && !isAdmin && <ChatWidget userEmail={user.email} />}
+
       </div>
     </div>
   );
