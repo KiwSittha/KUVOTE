@@ -1,18 +1,21 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import Layout from "./components/Layout";
-import html2canvas from "html2canvas";
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
 function Dashboard() {
   const [candidates, setCandidates] = useState([]);
-  const [summary, setSummary] = useState({ totalVerified: 0, voted: 0, notVoted: 0 });
+  const [summary, setSummary] = useState({ 
+    totalVerified: 0, 
+    voted: 0, 
+    notVoted: 0,
+    votersByYear: {},
+    votersByFaculty: {}
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const [activeTab, setActiveTab] = useState("automatic");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const hiddenCaptureRef = useRef(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -37,45 +40,25 @@ function Dashboard() {
     return () => clearInterval(intervalId);
   }, []);
 
+  // เรียงลำดับจากคะแนนมากไปน้อย
   const sorted = [...candidates].sort((a, b) => b.votes - a.votes);
-  const maxVote = sorted[0]?.votes || 1;
+  const maxFacultyVoters = Math.max(...Object.values(summary.votersByFaculty || { a: 1 }));
 
-  // Logic การแชร์กลาง (ใช้ร่วมกันทุกปุ่มแชร์)
-  const handleSmartShare = async () => {
-    if (isGenerating) return;
-    setIsGenerating(true);
-    try {
-        const canvas = await html2canvas(hiddenCaptureRef.current, { 
-            useCORS: true, 
-            scale: 2, 
-            backgroundColor: '#111827' 
-        });
-        canvas.toBlob(async (blob) => {
-            const file = new File([blob], "KU-Election-Result.png", { type: "image/png" });
-            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                    files: [file],
-                    title: 'ผลการเลือกตั้ง KU SRC',
-                });
-            } else {
-                downloadImage(canvas);
-            }
-            setIsGenerating(false);
-        }, 'image/png');
-    } catch (e) { 
-        console.error(e);
-        setIsGenerating(false); 
-    }
-  };
+  // สร้าง Array จัดลำดับโพเดียม (ซ้าย=อันดับ2, กลาง=อันดับ1, ขวา=อันดับ3)
+  const top3 = sorted.slice(0, 3);
+  const podiumDisplay = [];
+  if (top3[1]) podiumDisplay.push({ c: top3[1], rank: 2, badgeColor: 'bg-white text-slate-500 border-2 border-slate-300' });
+  if (top3[0]) podiumDisplay.push({ c: top3[0], rank: 1, badgeColor: 'bg-yellow-400 text-slate-900 border-none' });
+  if (top3[2]) podiumDisplay.push({ c: top3[2], rank: 3, badgeColor: 'bg-white text-orange-600 border-2 border-orange-500' });
 
-  const downloadImage = (canvas) => {
-      const link = document.createElement("a");
-      link.href = canvas.toDataURL("image/png");
-      link.download = `KUSRC-Result-${Date.now()}.png`;
-      link.click();
-  };
+  const FACULTIES_INFO = [
+    { id: 'eng', name: 'คณะวิศวกรรมศาสตร์ศรีราชา', icon: '⚙️', color: '#D12E2E' },
+    { id: 'ms', name: 'คณะวิทยาการจัดการ', icon: '📊', color: '#0095D9' },
+    { id: 'sci', name: 'คณะวิทยาศาสตร์ ศรีราชา', icon: '🧪', color: '#4B2C84' },
+    { id: 'ims', name: 'คณะพาณิชยนาวีนานาชาติ', icon: '⚓', color: '#1A5D3A' },
+    { id: 'econ', name: 'คณะเศรษฐศาสตร์ ศรีราชา', icon: '💰', color: '#5FB646' },
+  ];
 
-  // --- ส่วนของ Layout ย่อยๆ (Map, Card แชร์) ยังคงเดิมเพื่อให้ UI นิ่ง ---
   const MapVisualization = () => {
     const LOCATIONS = [
       { id: 'eng', name: 'วิดวะฯ', icon: '⚙️', top: '20%', left: '20%', color: '#D12E2E' },
@@ -99,48 +82,35 @@ function Dashboard() {
     );
   };
 
-  const VSCardForShare = ({ innerRef }) => {
-    const p1 = sorted[0] || { number: '?', name: 'รอผลคะแนน', votes: 0 };
-    const p2 = sorted[1] || { number: '?', name: 'รอผลคะแนน', votes: 0 };
-    return (
-      <div ref={innerRef} className="w-[1080px] h-[1920px] bg-[#111827] flex flex-col items-center pt-32 text-white font-['Kanit']">
-          <div className="bg-yellow-400 text-black font-black text-3xl px-10 py-2 rounded-full mb-10">🔥 REALTIME UPDATE</div>
-          <h1 className="text-8xl font-black italic">KU SRC ELECTION</h1>
-          <div className="flex-1 w-full flex flex-col justify-center items-center gap-20">
-              <div className="flex flex-col items-center">
-                  <div className="w-80 h-80 rounded-full border-[15px] border-yellow-400 bg-slate-800 flex items-center justify-center text-[150px] font-black">{p1.candidateId || p1.number}</div>
-                  <h2 className="text-7xl font-black mt-10">{p1.name}</h2>
-                  <div className="text-5xl text-yellow-400 font-bold mt-4">{p1.votes.toLocaleString()} คะแนน</div>
-              </div>
-              <div className="text-9xl font-black opacity-20 italic">VS</div>
-              <div className="flex flex-col items-center opacity-70">
-                  <div className="w-64 h-64 rounded-full border-[10px] border-slate-500 bg-slate-800 flex items-center justify-center text-[100px] font-black">{p2.candidateId || p2.number}</div>
-                  <h2 className="text-5xl font-bold mt-8">{p2.name}</h2>
-                  <div className="text-4xl font-bold mt-2">{p2.votes.toLocaleString()} คะแนน</div>
-              </div>
-          </div>
-      </div>
-    );
-  };
-
   if (loading) return <div className="h-screen flex items-center justify-center bg-[#1A5D3A] text-white">กำลังโหลด...</div>;
 
   return (
     <Layout>
       <div className={`font-['Kanit'] min-h-screen pb-20 transition-colors ${activeTab === 'automatic' ? 'bg-[#1A5D3A]' : 'bg-[#F3F4F6]'}`}>
-        <div style={{ position: "fixed", top: "0", left: "-9999px" }}><VSCardForShare innerRef={hiddenCaptureRef} /></div>
         
         {/* HEADER */}
         <div className="relative w-full bg-gradient-to-r from-[#1A5D3A] to-[#2E8B57] pb-10">
-            <div className="pt-8 pb-72 text-center text-white">
+            {/* ✅ 1. เพิ่ม pb-80 (มือถือ) และ pb-96 (หน้าจอใหญ่) เพื่อดันพื้นสีเขียวลงมา ให้มีที่ว่างมากขึ้น */}
+            <div className="pt-8 pb-80 md:pb-96 text-center text-white">
                 <h3 className="text-xl font-light tracking-[0.2em]">KU SRC ELECTION</h3>
                 <h1 className="text-3xl md:text-5xl font-bold mt-2 font-['Kanit']">ผลการเลือกตั้งประธานนิสิต <br /> มก. วิทยาเขตศรีราชา</h1>
             </div>
-            <div className="absolute bottom-14 left-0 right-0 flex justify-center items-end gap-4">
-                {candidates.slice(0, 3).map((c) => (
-                    <div key={c._id} className="relative">
-                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=Candidate${c.candidateId || c.number}`} className="h-32 md:h-52" alt="" />
-                        <div className="absolute -top-2 -right-2 bg-white text-[#1A5D3A] font-black w-8 h-8 rounded-full flex items-center justify-center border-2 border-[#1A5D3A]">{c.candidateId || c.number}</div>
+            
+            {/* ✅ 2. เปลี่ยนจาก bottom-14 เป็น bottom-6 md:bottom-10 เพื่อขยับรูปให้ต่ำลงมาอีก */}
+            <div className="absolute bottom-6 md:bottom-10 left-0 right-0 flex justify-center items-end gap-4 md:gap-8">
+                {podiumDisplay.map(({ c, rank, badgeColor }) => (
+                    <div key={c._id} className="relative flex flex-col items-center group">
+                        <img 
+                            src={c.profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=Candidate${c.candidateId || c.number}`} 
+                            className={`object-cover rounded-3xl shadow-2xl bg-white transition-all duration-300 group-hover:scale-105 group-hover:-translate-y-2 ${rank === 1 ? 'w-40 h-40 md:w-56 md:h-56 z-20' : 'w-32 h-32 md:w-44 md:h-44 opacity-95 hover:opacity-100 z-10'}`} 
+                            alt={c.name} 
+                        />
+                        <div className={`absolute -top-4 -right-4 font-black w-10 h-10 md:w-14 md:h-14 rounded-2xl flex items-center justify-center shadow-lg text-lg md:text-2xl z-30 ${badgeColor}`}>
+                            {c.candidateId || c.number}
+                        </div>
+                        <div className={`mt-4 bg-black/40 backdrop-blur-sm text-white px-4 py-1.5 rounded-full font-medium border border-white/20 truncate ${rank === 1 ? 'text-sm md:text-base max-w-[150px] md:max-w-[200px]' : 'text-xs md:text-sm max-w-[120px] md:max-w-[150px]'}`}>
+                            {c.name}
+                        </div>
                     </div>
                 ))}
             </div>
@@ -150,7 +120,7 @@ function Dashboard() {
         <div className="bg-[#1E293B] text-white py-3 px-4 shadow-lg sticky top-0 z-40 border-b-4 border-emerald-500">
              <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-6 md:gap-12">
-                    <div><span className="block text-slate-400 text-[10px] uppercase font-bold">นับคะแนนแล้ว</span><span className="font-bold text-pink-500 text-lg md:text-xl">{summary.voted.toLocaleString()}</span></div>
+                    <div><span className="block text-slate-400 text-[10px] uppercase font-bold">มาใช้สิทธิ์แล้ว</span><span className="font-bold text-pink-500 text-lg md:text-xl">{summary.voted.toLocaleString()}</span></div>
                     <div><span className="block text-slate-400 text-[10px] uppercase font-bold">ผู้มีสิทธิ์เลือกตั้ง</span><span className="font-bold text-emerald-400 text-lg md:text-xl">{summary.totalVerified.toLocaleString()}</span></div>
                     <div><span className="block text-slate-400 text-[10px] uppercase font-bold">ยังไม่ใช้สิทธิ์</span><span className="font-bold text-slate-300 text-lg md:text-xl">{summary.notVoted.toLocaleString()}</span></div>
                 </div>
@@ -164,14 +134,14 @@ function Dashboard() {
 
         <div className="max-w-7xl mx-auto mt-8 px-4 font-['Kanit']">
             {activeTab === 'automatic' && (
-                <div className="flex flex-col items-center space-y-8">
-                    {/* Realtime Bar */}
-                    <div className="w-full flex rounded-2xl overflow-hidden shadow-2xl h-24 md:h-32 bg-[#1e293b]">
+                <div className="flex flex-col items-center space-y-6 w-full max-w-4xl mx-auto">
+                    {/* ส่วนที่ 1: แถบ Realtime Bar 3 อันดับแรก */}
+                    <div className="w-full flex rounded-2xl overflow-hidden shadow-xl h-24 md:h-32 bg-[#1e293b]">
                         {sorted.slice(0, 3).map((c, idx) => (
                             <div key={c._id} className={`${["bg-[#FACC15]", "bg-[#EF4444]", "bg-[#3B82F6]"][idx]} flex items-center justify-center text-white relative flex-1 border-r border-white/10 last:border-0`}>
                                 <div className="flex items-center gap-2 md:gap-4">
-                                    <div className="w-8 h-8 md:w-12 md:h-12 rounded-full bg-white text-slate-800 flex items-center justify-center font-black text-sm md:text-xl">
-                                        {c.candidateId || c.number}
+                                    <div className="w-8 h-8 md:w-12 md:h-12 rounded-full bg-white text-slate-800 flex items-center justify-center font-black text-sm md:text-xl shadow-inner border border-slate-200">
+                                        <span>{c.candidateId || c.number}</span>
                                     </div>
                                     <span className="text-2xl md:text-5xl font-black">{c.votes.toLocaleString()}</span>
                                 </div>
@@ -179,71 +149,83 @@ function Dashboard() {
                         ))}
                     </div>
 
-                    {/* ✅ แก้ไขส่วนปุ่มแชร์ใหม่ให้มี FB และ X */}
-                    <div className="w-full max-w-4xl bg-[#1E293B]/60 backdrop-blur-md rounded-3xl p-8 border border-slate-600/50 text-center shadow-2xl">
-                        <h3 className="text-white text-lg font-medium mb-8">แชร์คู่พรรคที่มีคะแนนล่าสุด (VS MODE)</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                            {/* Instagram Button */}
-                            <button onClick={handleSmartShare} className="flex items-center justify-center gap-3 bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 text-white px-6 py-4 rounded-full font-bold shadow-lg transition-transform hover:scale-105 active:scale-95">
-                                <span className="text-xl">📷</span> Add to story
-                            </button>
-                            {/* Facebook Button */}
-                            <button onClick={handleSmartShare} className="flex items-center justify-center gap-3 bg-[#1877F2] text-white px-6 py-4 rounded-full font-bold shadow-lg transition-transform hover:scale-105 active:scale-95">
-                                <span className="text-xl">📘</span> Facebook
-                            </button>
-                            {/* X Button */}
-                            <button onClick={handleSmartShare} className="flex items-center justify-center gap-3 bg-black text-white px-6 py-4 rounded-full font-bold shadow-lg border border-slate-700 transition-transform hover:scale-105 active:scale-95">
-                                <span className="text-xl">𝕏</span> add to X
-                            </button>
+                    {/* ส่วนที่ 2: ตารางพรรคที่เหลือ */}
+                    {sorted.length > 3 && (
+                        <div className="w-full flex flex-col gap-3 mt-4">
+                            {sorted.slice(3).map((c) => (
+                                <div key={c._id} className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow">
+                                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-slate-700 text-white flex items-center justify-center font-black text-lg shadow-inner">
+                                        {c.candidateId || c.number}
+                                    </div>
+                                    <div className="flex-1 flex flex-col md:flex-row md:items-center justify-between min-w-0">
+                                        <div className="text-sm md:text-base font-bold text-slate-800 truncate mb-1 md:mb-0">
+                                            {c.name}
+                                        </div>
+                                        <div className="text-emerald-600 font-black text-lg md:text-xl">
+                                            {c.votes.toLocaleString()} <span className="text-xs font-normal text-slate-500">คะแนน</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                        {/* Download Button */}
-                        <button onClick={handleSmartShare} className="flex items-center justify-center gap-3 bg-[#10B981] text-white px-12 py-4 rounded-full font-bold shadow-[0_0_20px_rgba(16,185,129,0.4)] mx-auto transition-all hover:scale-105 hover:bg-[#059669]">
-                             <span className="text-xl">📥</span> Download Result
-                        </button>
+                    )}
+                </div>
+            )}
+
+            {/* แสดงสถิติการมาใช้สิทธิ์แบ่งตาม "ชั้นปี" */}
+            {activeTab === 'year' && (
+                <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 max-w-4xl mx-auto">
+                    <h2 className="text-2xl font-black text-slate-800 mb-6 text-center">สถิติผู้มาใช้สิทธิ์แยกตามชั้นปี</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map(year => {
+                            const voters = summary.votersByYear?.[year] || 0;
+                            const percentage = summary.voted > 0 ? ((voters / summary.voted) * 100).toFixed(1) : 0;
+                            return (
+                                <div key={year} className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex flex-col items-center justify-center relative overflow-hidden">
+                                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-100 rounded-full opacity-50"></div>
+                                    <h3 className="text-xl font-bold text-slate-600 z-10">นิสิตชั้นปีที่ {year}</h3>
+                                    <div className="text-5xl font-black text-emerald-600 my-4 z-10">{voters.toLocaleString()} <span className="text-lg text-slate-400 font-normal">คน</span></div>
+                                    <div className="w-full bg-slate-200 h-2 rounded-full mt-2 z-10">
+                                        <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${percentage}%` }}></div>
+                                    </div>
+                                    <div className="text-xs text-slate-500 mt-2 font-bold z-10">{percentage}% ของผู้มาใช้สิทธิ์ทั้งหมด</div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}
 
-            {/* ส่วน By Year และ By Faculty คงเดิมเพื่อความสมบูรณ์ของไฟล์ */}
-            {activeTab === 'year' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {sorted.map((c, idx) => (
-                        <div key={idx} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                            <div className="flex items-center gap-4 mb-6">
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black text-white ${["bg-[#FACC15]", "bg-[#EF4444]", "bg-[#3B82F6]"][idx] || "bg-emerald-500"}`}>{c.candidateId || c.number}</div>
-                                <div className="font-bold text-slate-800 text-lg truncate">{c.name}</div>
-                            </div>
-                            <div className="space-y-4">
-                                {[1, 2, 3, 4].map(y => (
-                                    <div key={y}>
-                                        <div className="flex justify-between text-[11px] font-bold text-slate-500 mb-1"><span>ปี {y}</span><span>{(c.votesByYear?.[y] || 0).toLocaleString()}</span></div>
-                                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div className={`h-full ${["bg-[#FACC15]", "bg-[#EF4444]", "bg-[#3B82F6]"][idx] || "bg-emerald-500"}`} style={{ width: `${((c.votesByYear?.[y] || 0) / (c.votes || 1)) * 100}%` }}></div></div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
+            {/* แสดงสถิติการมาใช้สิทธิ์แบ่งตาม "คณะ" */}
             {activeTab === 'faculty' && (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     <MapVisualization />
-                    <div className="lg:col-span-7 space-y-3">
-                        {sorted.map((c, idx) => (
-                            <div key={c._id} className="bg-white rounded-xl p-4 flex items-center shadow-sm border border-slate-100">
-                                <span className={`text-3xl font-black italic mr-4 ${idx === 0 ? 'text-yellow-400' : 'text-slate-200'}`}>{idx + 1}</span>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between font-bold text-slate-800 mb-1">
-                                        <span className="truncate">{c.name} <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full ml-1 font-normal">#{c.candidateId || c.number}</span></span>
-                                        <span>{c.votes.toLocaleString()}</span>
+                    <div className="lg:col-span-7 bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <h2 className="text-xl font-black text-slate-800 mb-6 border-b pb-4">จำนวนผู้มาใช้สิทธิ์แต่ละคณะ</h2>
+                        <div className="space-y-4">
+                            {FACULTIES_INFO.map((faculty, idx) => {
+                                const voters = summary.votersByFaculty?.[faculty.id] || 0;
+                                return (
+                                    <div key={faculty.id} className="flex items-center p-3 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-100">
+                                        <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl mr-4 text-white shadow-sm" style={{ backgroundColor: faculty.color }}>
+                                            {faculty.icon}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex justify-between font-bold text-slate-800 mb-1">
+                                                <span className="truncate">{faculty.name}</span>
+                                                <span className="text-emerald-600">{voters.toLocaleString()} คน</span>
+                                            </div>
+                                            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                                                <div 
+                                                    className="h-full transition-all duration-700" 
+                                                    style={{ width: `${(voters / (maxFacultyVoters || 1)) * 100}%`, backgroundColor: faculty.color }}
+                                                ></div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                                        <div className="bg-emerald-500 h-full transition-all duration-700" style={{ width: `${(c.votes / maxVote) * 100}%` }}></div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             )}

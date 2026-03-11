@@ -10,12 +10,12 @@ function Register() {
   const [form, setForm] = useState({
     email: "",
     faculty: "",
+    year: "", // ✅ 1. เพิ่ม State สำหรับเก็บค่าชั้นปี
     loginPassword: "",
-    confirmPassword: "", // ✅ เพิ่ม State สำหรับยืนยันรหัสผ่าน
+    confirmPassword: "", 
     votePin: "",
   });
 
-  // ✅ เพิ่ม State สำหรับจัดการการแสดง/ซ่อนรหัสผ่าน
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showVotePin, setShowVotePin] = useState(false);
@@ -35,10 +35,14 @@ function Register() {
   };
 
   const validateForm = () => {
-    // 1. ตรวจสอบอีเมล @ku.th
     const emailValue = form.email.trim().toLowerCase();
     if (!emailValue.endsWith("@ku.th")) {
         return "กรุณาใช้อีเมลมหาวิทยาลัย (@ku.th) เท่านั้น";
+    }
+
+    // ✅ 2. เพิ่มการตรวจสอบว่าได้เลือกชั้นปีหรือยัง
+    if (!form.year) {
+      return "กรุณาเลือกชั้นปี";
     }
 
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z]).{8,}$/;
@@ -46,7 +50,6 @@ function Register() {
       return "รหัสผ่านต้องมีอย่างน้อย 8 ตัว และมี A-Z และ a-z";
     }
 
-    // ✅ เพิ่มการตรวจสอบว่ารหัสผ่านตรงกันหรือไม่
     if (form.loginPassword !== form.confirmPassword) {
       return "รหัสผ่านยืนยันไม่ตรงกับรหัสผ่านหลัก";
     }
@@ -71,13 +74,13 @@ function Register() {
     }
 
     try {
-      // ตัด confirmPassword ออกก่อนส่งไป Backend (Backend ไม่ได้รับค่านี้)
       const { confirmPassword, ...dataToSend } = form;
 
       const res = await fetch("http://localhost:8000/register/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...dataToSend, email: form.email.trim().toLowerCase() }),
+        // แปลง year ให้เป็นตัวเลขก่อนส่งไป Backend เพื่อความปลอดภัย
+        body: JSON.stringify({ ...dataToSend, year: parseInt(form.year), email: form.email.trim().toLowerCase() }),
       });
 
       const data = await res.json();
@@ -110,7 +113,7 @@ function Register() {
       <div className="absolute bottom-[-10%] right-[-10%] w-[400px] md:w-[600px] h-[400px] md:h-[600px] bg-green-300 rounded-full blur-[100px] md:blur-[150px] opacity-20 animate-pulse delay-1000"></div>
 
       {/* ================= Main Card ================= */}
-      <div className="relative z-10 bg-white/95 w-full max-w-[500px] p-6 md:p-10 rounded-3xl shadow-2xl shadow-green-900/20 border border-white/50 backdrop-blur-xl animate-fade-in-up">
+      <div className="relative z-10 bg-white/95 w-full max-w-[500px] p-6 md:p-10 rounded-3xl shadow-2xl shadow-green-900/20 border border-white/50 backdrop-blur-xl animate-fade-in-up mt-8 mb-8">
         
         {/* ปุ่มย้อนกลับหน้าแรก */}
         <Link to="/" className="absolute top-4 left-4 text-slate-400 hover:text-emerald-600 transition-colors p-2 rounded-full hover:bg-slate-100">
@@ -177,38 +180,70 @@ function Register() {
               <p className="text-[10px] text-slate-400 ml-1">ต้องลงท้ายด้วย @ku.th เท่านั้น</p>
             </div>
 
-            {/* 2. Faculty */}
-            <div className="space-y-1">
-              <label className="text-sm font-semibold text-slate-700 ml-1">คณะสังกัด</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-slate-400 group-focus-within:text-emerald-500 transition-colors">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
-                  </svg>
-                </div>
-                <select
-                  name="faculty"
-                  value={form.faculty}
-                  onChange={handleChange}
-                  required
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-slate-800 appearance-none text-sm md:text-base"
-                >
-                  <option value="">กรุณาเลือกคณะ</option>
-                  <option value="เศรษฐศาสตร์">คณะเศรษฐศาสตร์</option>
-                  <option value="พาณิชยนาวีนานาชาติ">คณะพาณิชยนาวีนานาชาติ</option>
-                  <option value="วิทยาการจัดการ">คณะวิทยาการจัดการ</option>
-                  <option value="วิทยาศาสตร์">คณะวิทยาศาสตร์</option>
-                  <option value="วิศวกรรมศาสตร์">คณะวิศวกรรมศาสตร์</option>
-                </select>
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            {/* จัด Layout คณะและชั้นปีให้อยู่คู่กันในหน้าจอที่ใหญ่พอ */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 2. Faculty */}
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700 ml-1">คณะสังกัด</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-slate-400 group-focus-within:text-emerald-500 transition-colors">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
                     </svg>
+                  </div>
+                  <select
+                    name="faculty"
+                    value={form.faculty}
+                    onChange={handleChange}
+                    required
+                    className="w-full pl-10 pr-8 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-slate-800 appearance-none text-sm md:text-base"
+                  >
+                    <option value="">กรุณาเลือกคณะ</option>
+                    <option value="เศรษฐศาสตร์">คณะเศรษฐศาสตร์</option>
+                    <option value="พาณิชยนาวีนานาชาติ">คณะพาณิชยนาวีนานาชาติ</option>
+                    <option value="วิทยาการจัดการ">คณะวิทยาการจัดการ</option>
+                    <option value="วิทยาศาสตร์">คณะวิทยาศาสตร์</option>
+                    <option value="วิศวกรรมศาสตร์">คณะวิศวกรรมศาสตร์</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                      </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* ✅ 3. Year (เพิ่มใหม่) */}
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700 ml-1">ชั้นปี</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-slate-400 group-focus-within:text-emerald-500 transition-colors">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" />
+                    </svg>
+                  </div>
+                  <select
+                    name="year"
+                    value={form.year}
+                    onChange={handleChange}
+                    required
+                    className="w-full pl-10 pr-8 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-slate-800 appearance-none text-sm md:text-base"
+                  >
+                    <option value="">ชั้นปี</option>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map(y => (
+                      <option key={y} value={y}>ปี {y}</option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                      </svg>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* 3. Password (Login) */}
+            {/* 4. Password (Login) */}
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700 ml-1">ตั้งรหัสผ่านเข้าสู่ระบบ</label>
               <div className="relative group">
@@ -219,7 +254,7 @@ function Register() {
                 </div>
                 <input
                   name="loginPassword"
-                  type={showPassword ? "text" : "password"} // ✅ เปลี่ยน type ได้
+                  type={showPassword ? "text" : "password"}
                   placeholder="ขั้นต่ำ 8 ตัวอักษร (A-Z, a-z)"
                   value={form.loginPassword}
                   onChange={handleChange}
@@ -227,7 +262,6 @@ function Register() {
                   className="w-full pl-10 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-slate-800 placeholder:text-slate-400 text-sm md:text-base"
                 />
                 
-                {/* ✅ ปุ่มรูปตาแสดง/ซ่อนรหัส */}
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -250,7 +284,7 @@ function Register() {
               <p className="text-xs text-slate-400 ml-1">* ต้องมีตัวพิมพ์ใหญ่และพิมพ์เล็กอย่างน้อย 1 ตัว</p>
             </div>
 
-            {/* ✅ 3.5 Confirm Password (เพิ่มใหม่) */}
+            {/* 5. Confirm Password */}
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700 ml-1">ยืนยันรหัสผ่าน</label>
               <div className="relative group">
@@ -269,7 +303,6 @@ function Register() {
                   className="w-full pl-10 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-slate-800 placeholder:text-slate-400 text-sm md:text-base"
                 />
                 
-                {/* ปุ่มรูปตา */}
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -284,7 +317,7 @@ function Register() {
               </div>
             </div>
 
-            {/* 4. Vote Pin (แก้เป็น type password + ปุ่มดู) */}
+            {/* 6. Vote Pin */}
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700 ml-1">ตั้งรหัส Vote PIN (6 หลัก)</label>
               <div className="relative group">
@@ -295,7 +328,7 @@ function Register() {
                 </div>
                 <input
                   name="votePin"
-                  type={showVotePin ? "text" : "password"} // ✅ เปลี่ยน type ได้
+                  type={showVotePin ? "text" : "password"}
                   maxLength={6}
                   placeholder="สำหรับใช้ยืนยันตอนกดโหวต"
                   value={form.votePin}
@@ -304,7 +337,6 @@ function Register() {
                   className="w-full pl-10 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-slate-800 placeholder:text-slate-400 tracking-widest text-sm md:text-base"
                 />
 
-                {/* ปุ่มรูปตา */}
                 <button
                   type="button"
                   onClick={() => setShowVotePin(!showVotePin)}

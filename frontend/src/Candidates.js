@@ -90,13 +90,31 @@ function Candidates() {
                     {currentCandidate.candidateId}
                  </div>
 
-                 <div className="relative z-0 group-hover:scale-105 transition-transform duration-500">
+                 <div className="relative z-0 group-hover:scale-105 transition-transform duration-500 w-full flex justify-center">
                     <div className="absolute inset-0 bg-emerald-300 rounded-full blur-2xl opacity-20"></div>
-                    <img
+                    
+                    {/* ✅ ส่วนที่แก้ไข: ดึงรูปภาพจาก Database */}
+                    {currentCandidate.profileImage ? (
+                      <div className="w-56 h-56 md:w-64 md:h-64 rounded-full overflow-hidden border-4 border-white shadow-xl relative drop-shadow-2xl bg-white">
+                        <img
+                          src={currentCandidate.profileImage}
+                          alt={`ผู้สมัครเบอร์ ${currentCandidate.candidateId}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            // ถ้าโหลดรูปพัง (เช่น Base64 ขาด หรือ URL ผิด) ให้กลับไปแสดงรูปคน
+                            e.target.onerror = null; 
+                            e.target.src = "https://cdn-icons-png.flaticon.com/512/2922/2922510.png";
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <img
                         src="https://cdn-icons-png.flaticon.com/512/2922/2922510.png"
-                        alt="candidate"
+                        alt="ไม่มีรูปภาพ"
                         className="w-56 h-56 md:w-64 md:h-64 object-cover relative drop-shadow-2xl"
-                    />
+                      />
+                    )}
+
                  </div>
               </div>
 
