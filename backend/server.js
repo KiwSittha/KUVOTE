@@ -594,15 +594,6 @@ app.post("/vote", async (req, res) => {
         { $inc: { votes: 1 } }
     );
 
-    await writeAuditLog({
-      actorEmail: email,
-      actorRole: "user",
-      action: "user.vote",
-      targetType: "candidate",
-      targetId: String(candidateId),
-      details: { txHash: tx.hash, blockNumber: receipt.blockNumber },
-    });
-
     res.json({ 
       message: "โหวตสำเร็จ! ข้อมูลถูกบันทึกลง Blockchain เรียบร้อยแล้ว",
       txHash: tx.hash,
