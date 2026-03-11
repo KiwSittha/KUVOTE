@@ -59,29 +59,6 @@ function Dashboard() {
     { id: 'econ', name: 'คณะเศรษฐศาสตร์ ศรีราชา', icon: '💰', color: '#5FB646' },
   ];
 
-  const MapVisualization = () => {
-    const LOCATIONS = [
-      { id: 'eng', name: 'วิดวะฯ', icon: '⚙️', top: '20%', left: '20%', color: '#D12E2E' },
-      { id: 'ms', name: 'วิทย์ฯ จัดการ', icon: '📊', top: '55%', left: '15%', color: '#0095D9' },
-      { id: 'sci', name: 'วิทยาศาสตร์', icon: '🧪', top: '35%', right: '20%', color: '#4B2C84' },
-      { id: 'ims', name: 'พาณิชยนาวีฯ', icon: '⚓', top: '50%', left: '48%', color: '#1A5D3A' },
-      { id: 'econ', name: 'เศรษฐศาสตร์', icon: '💰', bottom: '20%', right: '30%', color: '#5FB646' },
-    ];
-    return (
-      <div className="lg:col-span-5 relative bg-white rounded-2xl p-4 min-h-[400px] shadow-sm border border-slate-100 overflow-hidden flex flex-col">
-          <div className="z-10 text-center mb-2 font-bold text-slate-800">แผนที่คณะ (KU SRC)</div>
-          <div className="absolute inset-0 top-12 m-4 bg-[#F0F4F8] rounded-xl border-2 border-dashed border-slate-200">
-              {LOCATIONS.map((loc) => (
-                  <div key={loc.id} className="absolute flex flex-col items-center" style={{ top: loc.top, left: loc.left, right: loc.right, bottom: loc.bottom }}>
-                      <div className="w-10 h-10 bg-white rounded-xl shadow border-2 flex items-center justify-center" style={{ borderColor: loc.color }}><span className="text-xl">{loc.icon}</span></div>
-                      <span className="text-[10px] font-bold text-slate-500 mt-1">{loc.name}</span>
-                  </div>
-              ))}
-          </div>
-      </div>
-    );
-  };
-
   if (loading) return <div className="h-screen flex items-center justify-center bg-[#1A5D3A] text-white">กำลังโหลด...</div>;
 
   return (
@@ -90,13 +67,13 @@ function Dashboard() {
         
         {/* HEADER */}
         <div className="relative w-full bg-gradient-to-r from-[#1A5D3A] to-[#2E8B57] pb-10">
-            {/* ✅ 1. เพิ่ม pb-80 (มือถือ) และ pb-96 (หน้าจอใหญ่) เพื่อดันพื้นสีเขียวลงมา ให้มีที่ว่างมากขึ้น */}
+            {/* เพิ่ม pb-80 (มือถือ) และ pb-96 (หน้าจอใหญ่) เพื่อดันพื้นสีเขียวลงมา ให้มีที่ว่างมากขึ้น */}
             <div className="pt-8 pb-80 md:pb-96 text-center text-white">
                 <h3 className="text-xl font-light tracking-[0.2em]">KU SRC ELECTION</h3>
                 <h1 className="text-3xl md:text-5xl font-bold mt-2 font-['Kanit']">ผลการเลือกตั้งประธานนิสิต <br /> มก. วิทยาเขตศรีราชา</h1>
             </div>
             
-            {/* ✅ 2. เปลี่ยนจาก bottom-14 เป็น bottom-6 md:bottom-10 เพื่อขยับรูปให้ต่ำลงมาอีก */}
+            {/* เปลี่ยนจาก bottom-14 เป็น bottom-6 md:bottom-10 เพื่อขยับรูปให้ต่ำลงมาอีก */}
             <div className="absolute bottom-6 md:bottom-10 left-0 right-0 flex justify-center items-end gap-4 md:gap-8">
                 {podiumDisplay.map(({ c, rank, badgeColor }) => (
                     <div key={c._id} className="relative flex flex-col items-center group">
@@ -197,35 +174,33 @@ function Dashboard() {
             )}
 
             {/* แสดงสถิติการมาใช้สิทธิ์แบ่งตาม "คณะ" */}
+            {/* ✅ อัปเดต: เอาแผนที่ออก และจัดให้กล่องคะแนนอยู่ตรงกลาง */}
             {activeTab === 'faculty' && (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    <MapVisualization />
-                    <div className="lg:col-span-7 bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                        <h2 className="text-xl font-black text-slate-800 mb-6 border-b pb-4">จำนวนผู้มาใช้สิทธิ์แต่ละคณะ</h2>
-                        <div className="space-y-4">
-                            {FACULTIES_INFO.map((faculty, idx) => {
-                                const voters = summary.votersByFaculty?.[faculty.id] || 0;
-                                return (
-                                    <div key={faculty.id} className="flex items-center p-3 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-100">
-                                        <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl mr-4 text-white shadow-sm" style={{ backgroundColor: faculty.color }}>
-                                            {faculty.icon}
+                <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 max-w-4xl mx-auto">
+                    <h2 className="text-2xl font-black text-slate-800 mb-6 text-center border-b pb-4">จำนวนผู้มาใช้สิทธิ์แต่ละคณะ</h2>
+                    <div className="space-y-4">
+                        {FACULTIES_INFO.map((faculty, idx) => {
+                            const voters = summary.votersByFaculty?.[faculty.id] || 0;
+                            return (
+                                <div key={faculty.id} className="flex items-center p-3 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-100">
+                                    <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl mr-4 text-white shadow-sm shrink-0" style={{ backgroundColor: faculty.color }}>
+                                        {faculty.icon}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between font-bold text-slate-800 mb-1">
+                                            <span className="truncate text-sm md:text-base">{faculty.name}</span>
+                                            <span className="text-emerald-600 text-sm md:text-base whitespace-nowrap ml-2">{voters.toLocaleString()} คน</span>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex justify-between font-bold text-slate-800 mb-1">
-                                                <span className="truncate">{faculty.name}</span>
-                                                <span className="text-emerald-600">{voters.toLocaleString()} คน</span>
-                                            </div>
-                                            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                                                <div 
-                                                    className="h-full transition-all duration-700" 
-                                                    style={{ width: `${(voters / (maxFacultyVoters || 1)) * 100}%`, backgroundColor: faculty.color }}
-                                                ></div>
-                                            </div>
+                                        <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full transition-all duration-700" 
+                                                style={{ width: `${(voters / (maxFacultyVoters || 1)) * 100}%`, backgroundColor: faculty.color }}
+                                            ></div>
                                         </div>
                                     </div>
-                                );
-                            })}
-                        </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}
