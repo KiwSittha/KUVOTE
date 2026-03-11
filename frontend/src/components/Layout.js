@@ -116,7 +116,7 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
           <MenuItem open={open} to={user ? "/recommend" : "/login"} icon="🎯" text="ค้นหาคนที่ใช่" active={location.pathname === "/recommend"} />
           
           <MenuItem open={open} to={user ? "/vote" : "/login"} icon="🗳️" text="ลงคะแนนเสียง" active={location.pathname === "/vote"} />
-          <MenuItem open={open} to={user ? "/dashboard" : "/login"} icon="📊" text="ผลการเลือกตั้ง" active={location.pathname === "/dashboard"} />
+          <MenuItem open={open} to="/election-results" icon="🏆" text="ผลการเลือกตั้ง" active={location.pathname === "/election-results"} />
           
           {/* เมนูสำหรับ Admin */}
           {isAdmin && (

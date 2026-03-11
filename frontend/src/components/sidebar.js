@@ -65,6 +65,14 @@ export default function Sidebar({ open, setOpen }) {
           >
             📊 Live Results
           </Link>
+
+          <Link
+            to="/election-results"
+            onClick={() => setOpen(false)}
+            className="block px-4 py-2 rounded hover:bg-green-600"
+          >
+            🏆 ผลการเลือกตั้ง
+          </Link>
         </nav>
 
         {/* Logout */}
