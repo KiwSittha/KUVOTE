@@ -41,6 +41,33 @@ app.use(express.json());
 const client = new MongoClient(process.env.MONGO_URI);
 let db;
 
+async function writeAuditLog({
+  actorEmail = "system",
+  actorRole = "system",
+  action,
+  targetType = null,
+  targetId = null,
+  status = "success",
+  details = {},
+}) {
+  try {
+    if (!db) return;
+
+    await db.collection("audit_logs").insertOne({
+      actorEmail,
+      actorRole,
+      action,
+      targetType,
+      targetId,
+      status,
+      details,
+      createdAt: new Date(),
+    });
+  } catch (error) {
+    console.error("⚠️ Write Audit Log Error:", error.message);
+  }
+}
+
 async function ensureTTLIndex() {
   try {
     const collection = db.collection("users");
@@ -379,11 +406,121 @@ const verifyAdmin = async (req, res, next) => {
       return res.status(403).json({ message: "Forbidden: สิทธิ์ถูกปฏิเสธ (เฉพาะ Admin)" });
     }
 
+    req.user = {
+      id: decoded.userId,
+      email: user.email,
+      role: user.role || "user",
+    };
+
     next();
   } catch (err) {
     return res.status(401).json({ message: "Invalid Token: เซสชั่นหมดอายุ" });
   }
 };
+
+// =======================
+// 📣 Announcement System
+// =======================
+
+app.post("/admin/announcements", verifyAdmin, async (req, res) => {
+  try {
+    const { title, message, type, isPinned, expiresAt } = req.body;
+
+    if (!title || !message) {
+      return res.status(400).json({ message: "กรุณาระบุหัวข้อและรายละเอียดประกาศ" });
+    }
+
+    const announcement = {
+      title: String(title).trim(),
+      message: String(message).trim(),
+      type: ["info", "warning", "success"].includes(type) ? type : "info",
+      isPinned: Boolean(isPinned),
+      isActive: true,
+      expiresAt: expiresAt ? new Date(expiresAt) : null,
+      createdAt: new Date(),
+      createdBy: req.user?.email || "admin",
+    };
+
+    const result = await db.collection("announcements").insertOne(announcement);
+    await writeAuditLog({
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: "admin.create_announcement",
+      targetType: "announcement",
+      targetId: result.insertedId.toString(),
+      details: {
+        title: announcement.title,
+        type: announcement.type,
+        isPinned: announcement.isPinned,
+      },
+    });
+
+    res.status(201).json({ message: "สร้างประกาศสำเร็จ", id: result.insertedId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/announcements/active", async (req, res) => {
+  try {
+    const now = new Date();
+    const announcements = await db
+      .collection("announcements")
+      .find({
+        isActive: true,
+        $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
+      })
+      .sort({ isPinned: -1, createdAt: -1 })
+      .limit(5)
+      .toArray();
+
+    res.json(announcements);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/admin/announcements", verifyAdmin, async (req, res) => {
+  try {
+    const announcements = await db
+      .collection("announcements")
+      .find({})
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .toArray();
+
+    res.json(announcements);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/admin/announcements/:id/deactivate", verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await db.collection("announcements").updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { isActive: false, deactivatedAt: new Date() } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: "ไม่พบประกาศที่ต้องการปิด" });
+    }
+
+    await writeAuditLog({
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: "admin.deactivate_announcement",
+      targetType: "announcement",
+      targetId: id,
+    });
+
+    res.json({ message: "ปิดประกาศสำเร็จ" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // 📌 5.2 แอดมินตั้งค่าระบบ (รับค่า endTime มาบันทึก)
 app.post("/admin/toggle-election", verifyAdmin, async (req, res) => {
@@ -400,6 +537,15 @@ app.post("/admin/toggle-election", verifyAdmin, async (req, res) => {
       },
       { upsert: true }
     );
+
+    await writeAuditLog({
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: "admin.toggle_election",
+      targetType: "settings",
+      targetId: "electionState",
+      details: { isOpen: Boolean(isOpen), startTime: startTime || null, endTime: endTime || null },
+    });
 
     res.json({ message: "อัปเดตการตั้งค่าสำเร็จ", isOpen, startTime, endTime });
   } catch (err) {
@@ -447,6 +593,15 @@ app.post("/vote", async (req, res) => {
         { candidateId: parseInt(candidateId) },
         { $inc: { votes: 1 } }
     );
+
+    await writeAuditLog({
+      actorEmail: email,
+      actorRole: "user",
+      action: "user.vote",
+      targetType: "candidate",
+      targetId: String(candidateId),
+      details: { txHash: tx.hash, blockNumber: receipt.blockNumber },
+    });
 
     res.json({ 
       message: "โหวตสำเร็จ! ข้อมูลถูกบันทึกลง Blockchain เรียบร้อยแล้ว",
@@ -817,6 +972,15 @@ app.put("/admin/users/:id", verifyAdmin, async (req, res) => {
       return res.status(404).json({ message: "ไม่พบผู้ใช้ที่ต้องการแก้ไข" });
     }
 
+    await writeAuditLog({
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: "admin.update_user",
+      targetType: "user",
+      targetId: id,
+      details: { faculty, role },
+    });
+
     res.json({ message: "อัปเดตข้อมูลคณะและบทบาทสำเร็จ" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -875,9 +1039,41 @@ app.put("/candidates/:id",verifyAdmin, async (req, res) => {
       }
     );
 
+    await writeAuditLog({
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: "admin.update_candidate_status",
+      targetType: "candidate",
+      targetId: id,
+      details: { status, rejectReason: rejectReason || "", txHash: txHash || null },
+    });
+
     res.json({ message: `อัปเดตสถานะเป็น ${status} สำเร็จ!`, txHash });
   } catch (err) {
     console.error("PUT Candidate Status Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/admin/audit-logs", verifyAdmin, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+    const action = req.query.action?.trim();
+    const actor = req.query.actor?.trim();
+
+    const filter = {};
+    if (action) filter.action = action;
+    if (actor) filter.actorEmail = { $regex: actor, $options: "i" };
+
+    const logs = await db
+      .collection("audit_logs")
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .toArray();
+
+    res.json(logs);
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

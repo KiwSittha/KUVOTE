@@ -23,6 +23,8 @@ import Recommend from "./Recommend"; // ✅ นำเข้าไฟล์ที
 import AdminRoute from "./components/AdminRoute"; // ✅ นำเข้าไฟล์ที่เพิ่งสร้าง (เช็ค path ให้ตรง)
 import ProtectedRoute from "./components/ProtectedRoute"; // ✅ 1. นำเข้าไฟล์ที่เพิ่งสร้าง
 import ElectionResults from "./ElectionResults";
+import AdminAnnouncements from "./AdminAnnouncements";
+import AdminAuditLogs from "./AdminAuditLogs";
 
 function App() {
   return (
@@ -141,6 +143,24 @@ function App() {
         element={
           <AdminRoute>
             <AdminDashboard />
+          </AdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin-announcements"
+        element={
+          <AdminRoute>
+            <AdminAnnouncements />
+          </AdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin-audit-logs"
+        element={
+          <AdminRoute>
+            <AdminAuditLogs />
           </AdminRoute>
         }
       />

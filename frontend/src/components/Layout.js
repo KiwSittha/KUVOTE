@@ -5,8 +5,11 @@ import ChatWidget from "../ChatWidget"; // ✅ 1. นำเข้า ChatWidget 
 export default function Layout({ children, fullScreen = false, hideHeader = false, hideSidebar = false }) {
   const [open, setOpen] = useState(window.innerWidth > 768);
   const [user, setUser] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementIndex, setAnnouncementIndex] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
+  const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
   useEffect(() => {
     const fetchUser = () => {
@@ -38,6 +41,44 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
     }
   }, [location.pathname]);
 
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/announcements/active`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setAnnouncements(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Fetch announcements error:", error);
+      }
+    };
+
+    fetchAnnouncements();
+    const intervalId = setInterval(fetchAnnouncements, 60000);
+    return () => clearInterval(intervalId);
+  }, [API_BASE]);
+
+  useEffect(() => {
+    if (announcements.length === 0) {
+      setAnnouncementIndex(0);
+      return;
+    }
+
+    if (announcementIndex >= announcements.length) {
+      setAnnouncementIndex(0);
+    }
+  }, [announcements, announcementIndex]);
+
+  useEffect(() => {
+    if (announcements.length <= 1) return;
+
+    const sliderTimer = setInterval(() => {
+      setAnnouncementIndex((prev) => (prev + 1) % announcements.length);
+    }, 5000);
+
+    return () => clearInterval(sliderTimer);
+  }, [announcements]);
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -46,6 +87,7 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
 
   // ✅ เช็คจาก role ที่ส่งมาจาก Database ล้วนๆ
   const isAdmin = user && user.role === "admin";
+  const activeAnnouncement = announcements[announcementIndex] || null;
 
   // ถ้าเป็นหน้า Full Screen (เช่น Dashboard) ให้แสดงแบบไม่มี Sidebar และ Header
   if (fullScreen) {
@@ -143,6 +185,20 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
               icon="⚙️" 
               text="จัดการเลือกตั้ง" 
               active={location.pathname === "/admin-dashboard"} 
+            />
+            <MenuItem 
+              open={open} 
+              to="/admin-announcements" 
+              icon="📣" 
+              text="ประกาศแจ้งเตือน" 
+              active={location.pathname === "/admin-announcements"} 
+            />
+            <MenuItem 
+              open={open} 
+              to="/admin-audit-logs" 
+              icon="🧾" 
+              text="Audit Log" 
+              active={location.pathname === "/admin-audit-logs"} 
             />
             </>
             
@@ -248,6 +304,70 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
 
         {/* Scrollable Content */}
         <main className="flex-1 overflow-y-auto scroll-smooth relative">
+          {activeAnnouncement && (
+            <div className="sticky top-0 z-20 border-b border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50 px-4 py-3 md:px-8">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                  <span className="text-xl">📣</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-amber-800 truncate">
+                      {activeAnnouncement.title}
+                    </p>
+                    <p className="text-sm text-amber-700 overflow-hidden text-ellipsis whitespace-nowrap">
+                      {activeAnnouncement.message}
+                    </p>
+                  </div>
+                </div>
+
+                {announcements.length > 1 && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAnnouncementIndex((prev) =>
+                          prev === 0 ? announcements.length - 1 : prev - 1
+                        )
+                      }
+                      className="w-7 h-7 rounded-full border border-amber-300 text-amber-700 hover:bg-amber-100"
+                      aria-label="Previous announcement"
+                    >
+                      ‹
+                    </button>
+
+                    <div className="hidden md:flex items-center gap-1">
+                      {announcements.map((item, idx) => (
+                        <button
+                          key={item._id || idx}
+                          type="button"
+                          onClick={() => setAnnouncementIndex(idx)}
+                          className={`h-1.5 rounded-full transition-all ${
+                            idx === announcementIndex ? "w-6 bg-amber-600" : "w-2 bg-amber-300"
+                          }`}
+                          aria-label={`Go to announcement ${idx + 1}`}
+                        />
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAnnouncementIndex((prev) => (prev + 1) % announcements.length)
+                      }
+                      className="w-7 h-7 rounded-full border border-amber-300 text-amber-700 hover:bg-amber-100"
+                      aria-label="Next announcement"
+                    >
+                      ›
+                    </button>
+
+                    <span className="text-xs text-amber-700 font-semibold">
+                      {announcementIndex + 1}/{announcements.length}
+                    </span>
+                  </div>
+                )}
+                </div>
+              </div>
+            )}
+          )}
           {children}
         </main>
         
