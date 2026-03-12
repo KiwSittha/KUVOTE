@@ -1077,6 +1077,201 @@ app.get("/admin/audit-logs", verifyAdmin, async (req, res) => {
 });
 
 // =======================
+// Community Discussion
+// =======================
+
+const isValidObjectId = (id) => ObjectId.isValid(id);
+
+// Middleware: ตรวจสอบผู้ใช้ทั่วไปที่ login แล้ว
+const verifyUser = async (req, res, next) => {
+  try {
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.split(" ")[1];
+    if (!token) return res.status(401).json({ message: "Access Denied: ไม่พบ Token" });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await db.collection("users").findOne({ _id: new ObjectId(decoded.userId) });
+    if (!user) return res.status(401).json({ message: "ไม่พบผู้ใช้งาน" });
+    req.user = { id: decoded.userId, email: user.email, role: user.role || "student", name: user.name || user.email.split("@")[0] };
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid Token: เซสชั่นหมดอายุ" });
+  }
+};
+
+// GET /community/posts — ดึงรายการกระทู้ทั้งหมด (กรอง/ค้นหาได้)
+app.get("/community/posts", async (req, res) => {
+  try {
+    const { category, search } = req.query;
+    const filter = {};
+    if (category && category !== "ทั้งหมด") filter.category = category;
+    if (search && search.trim()) {
+      filter.$or = [
+        { title: { $regex: search.trim(), $options: "i" } },
+        { content: { $regex: search.trim(), $options: "i" } },
+        { author: { $regex: search.trim(), $options: "i" } },
+      ];
+    }
+    const posts = await db.collection("community_posts")
+      .find(filter)
+      .sort({ isPinned: -1, createdAt: -1 })
+      .toArray();
+    res.json(posts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /community/posts — สร้างกระทู้ใหม่
+app.post("/community/posts", verifyUser, async (req, res) => {
+  try {
+    const { title, content, category } = req.body;
+    if (!title || !content || !category) {
+      return res.status(400).json({ message: "กรุณากรอกข้อมูลให้ครบถ้วน" });
+    }
+    const post = {
+      title: title.trim(),
+      content: content.trim(),
+      category,
+      author: req.user.name,
+      authorEmail: req.user.email,
+      authorRole: req.user.role,
+      likes: [],
+      commentCount: 0,
+      isPinned: false,
+      isAdminAnnouncement: false,
+      createdAt: new Date(),
+    };
+    const result = await db.collection("community_posts").insertOne(post);
+    await writeAuditLog({ actorEmail: req.user.email, actorRole: req.user.role, action: "community_create_post", targetType: "community_post", targetId: result.insertedId.toString(), details: { title } });
+    res.status(201).json({ ...post, _id: result.insertedId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /community/posts/:id — ดึงกระทู้เดี่ยว
+app.get("/community/posts/:id", async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "รูปแบบรหัสกระทู้ไม่ถูกต้อง" });
+    }
+    const post = await db.collection("community_posts").findOne({ _id: new ObjectId(req.params.id) });
+    if (!post) return res.status(404).json({ message: "ไม่พบกระทู้" });
+    res.json(post);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /community/posts/:id/like — toggle like กระทู้
+app.put("/community/posts/:id/like", verifyUser, async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "รูปแบบรหัสกระทู้ไม่ถูกต้อง" });
+    }
+    const post = await db.collection("community_posts").findOne({ _id: new ObjectId(req.params.id) });
+    if (!post) return res.status(404).json({ message: "ไม่พบกระทู้" });
+    const email = req.user.email;
+    const hasLiked = (post.likes || []).includes(email);
+    const update = hasLiked
+      ? { $pull: { likes: email } }
+      : { $push: { likes: email } };
+    await db.collection("community_posts").updateOne({ _id: new ObjectId(req.params.id) }, update);
+    const updated = await db.collection("community_posts").findOne({ _id: new ObjectId(req.params.id) });
+    res.json({ likes: updated.likes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /community/posts/:id/comments — ดึง comment ของกระทู้
+app.get("/community/posts/:id/comments", async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "รูปแบบรหัสกระทู้ไม่ถูกต้อง" });
+    }
+    const comments = await db.collection("community_comments")
+      .find({ postId: req.params.id })
+      .sort({ createdAt: 1 })
+      .toArray();
+    res.json(comments);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /community/posts/:id/comments — เพิ่ม comment
+app.post("/community/posts/:id/comments", verifyUser, async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "รูปแบบรหัสกระทู้ไม่ถูกต้อง" });
+    }
+    const { content, parentId } = req.body;
+    if (!content || !content.trim()) return res.status(400).json({ message: "กรุณากรอกความคิดเห็น" });
+
+    const post = await db.collection("community_posts").findOne({ _id: new ObjectId(req.params.id) });
+    if (!post) return res.status(404).json({ message: "ไม่พบกระทู้" });
+
+    const comment = {
+      postId: req.params.id,
+      content: content.trim(),
+      author: req.user.name,
+      authorEmail: req.user.email,
+      authorRole: req.user.role,
+      likes: [],
+      parentId: parentId || null,
+      isReported: false,
+      createdAt: new Date(),
+    };
+    const result = await db.collection("community_comments").insertOne(comment);
+    await db.collection("community_posts").updateOne(
+      { _id: new ObjectId(req.params.id) },
+      { $inc: { commentCount: 1 } }
+    );
+    res.status(201).json({ ...comment, _id: result.insertedId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /community/comments/:id/like — toggle like comment
+app.put("/community/comments/:id/like", verifyUser, async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "รูปแบบรหัสความคิดเห็นไม่ถูกต้อง" });
+    }
+    const comment = await db.collection("community_comments").findOne({ _id: new ObjectId(req.params.id) });
+    if (!comment) return res.status(404).json({ message: "ไม่พบความคิดเห็น" });
+    const email = req.user.email;
+    const hasLiked = (comment.likes || []).includes(email);
+    const update = hasLiked ? { $pull: { likes: email } } : { $push: { likes: email } };
+    await db.collection("community_comments").updateOne({ _id: new ObjectId(req.params.id) }, update);
+    const updated = await db.collection("community_comments").findOne({ _id: new ObjectId(req.params.id) });
+    res.json({ likes: updated.likes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /community/comments/:id/report — รายงาน comment
+app.put("/community/comments/:id/report", verifyUser, async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "รูปแบบรหัสความคิดเห็นไม่ถูกต้อง" });
+    }
+    const { reason } = req.body;
+    await db.collection("community_comments").updateOne(
+      { _id: new ObjectId(req.params.id) },
+      { $set: { isReported: true, reportReason: reason || "", reportedBy: req.user.email, reportedAt: new Date() } }
+    );
+    await writeAuditLog({ actorEmail: req.user.email, actorRole: req.user.role, action: "community_report_comment", targetType: "community_comment", targetId: req.params.id, details: { reason } });
+    res.json({ message: "รายงานเรียบร้อยแล้ว" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// =======================
 // Start Server
 // =======================
 const PORT = process.env.PORT || 8000;

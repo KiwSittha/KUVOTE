@@ -159,6 +159,7 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
           
           <MenuItem open={open} to={user ? "/vote" : "/login"} icon="🗳️" text="ลงคะแนนเสียง" active={location.pathname === "/vote"} />
           <MenuItem open={open} to="/election-results" icon="🏆" text="ผลการเลือกตั้ง" active={location.pathname === "/election-results"} />
+          <MenuItem open={open} to={user ? "/community" : "/login"} icon="💬" text="Community" active={location.pathname.startsWith("/community")} />
           
           {/* เมนูสำหรับ Admin */}
           {isAdmin && (
