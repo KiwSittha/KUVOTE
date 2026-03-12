@@ -13,15 +13,19 @@ import Vote from "./Vote";
 import VoteGuide from "./VoteGuide";
 import AdminChat from "./AdminChat";
 import AddCandidates from "./AddCandidates";
-import ManageUsers from "./ManageUsers"; // ✅ นำเข้าไฟล์ที่เพิ่งสร้าง (เช็ค path ให้ตรง)
+import ManageUsers from "./ManageUsers";
 import CandidateManagement from "./CandidateManagement";  
 import CandidateDetail from "./CandidateDetail";
 import CandidatePreview from "./CandidatePreview";
 import AdminDashboard from "./AdminDashboard";
-import SelectPosition from "./SelectPosition"; // ✅ นำเข้าไฟล์ที่เพิ่งสร้าง (เช็ค path ให้ตรง)
-import Recommend from "./Recommend"; // ✅ นำเข้าไฟล์ที่เพิ่งสร้าง (เช็ค path ให้ตรง)
-import AdminRoute from "./components/AdminRoute"; // ✅ นำเข้าไฟล์ที่เพิ่งสร้าง (เช็ค path ให้ตรง)
-import ProtectedRoute from "./components/ProtectedRoute"; // ✅ 1. นำเข้าไฟล์ที่เพิ่งสร้าง
+import AdminAuditLogs from "./AdminAuditLogs";
+import AdminAnnouncements from "./AdminAnnouncements";
+import SelectPosition from "./SelectPosition"; 
+import Recommend from "./Recommend"; 
+import AdminRoute from "./components/AdminRoute"; 
+import ProtectedRoute from "./components/ProtectedRoute";
+import AdminImageGenerator from "./AdminImageGenerator";
+import AdminCandidateMediaGenerator from "./AdminCandidateMediaGenerator";
 
 function App() {
   return (
@@ -144,7 +148,43 @@ function App() {
         }
       />
 
+      <Route
+        path="/admin-announcements"
+        element={
+          <AdminRoute>
+            <AdminAnnouncements />
+          </AdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin-audit-logs"
+        element={
+          <AdminRoute>
+            <AdminAuditLogs />
+          </AdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin-image-generator"
+        element={
+          <AdminRoute>
+            <AdminImageGenerator />
+          </AdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin-candidate-media"
+        element={
+          <AdminRoute>
+            <AdminCandidateMediaGenerator />
+          </AdminRoute>
+        }
+      />
     </Routes>
+
   );
 }
 

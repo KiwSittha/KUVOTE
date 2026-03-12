@@ -89,6 +89,27 @@ async function connectDB() {
 connectDB();
 
 // =======================
+// 📝 ฟังก์ชันระบบ Audit Log (เพิ่มใหม่)
+// =======================
+async function writeAuditLog({ actorEmail, actorRole, action, targetType, targetId, details, ipAddress }) {
+  try {
+    if (!db) return;
+    await db.collection("audit_logs").insertOne({
+      actorEmail: actorEmail || "System/Guest",
+      actorRole: actorRole || "guest",
+      action: action, // เช่น "USER_LOGIN", "ADMIN_CREATE_ANNOUNCEMENT"
+      targetType: targetType || null, // เช่น "announcement", "candidate", "system"
+      targetId: targetId || null,
+      details: details || {},
+      ipAddress: ipAddress || null,
+      timestamp: new Date()
+    });
+  } catch (err) {
+    console.error("❌ Failed to write audit log:", err.message);
+  }
+}
+
+// =======================
 // Mail Configuration
 // =======================
 const transporter = nodemailer.createTransport({
@@ -153,6 +174,15 @@ app.post("/register/users", async (req, res) => {
     });
 
     insertedId = result.insertedId;
+    
+    // 📝 เก็บ Log การสมัครใช้งาน (ใหม่)
+    await writeAuditLog({
+      actorEmail: email,
+      actorRole: "user",
+      action: "USER_REGISTER",
+      details: { faculty, year },
+      ipAddress: req.ip
+    });
     
     const verifyToken = jwt.sign(
       { userId: insertedId },
@@ -256,9 +286,16 @@ app.post("/login", async (req, res) => {
     if (!user.isVerified) return res.status(403).json({ message: "กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ" });
 
     const isPasswordCorrect = await bcrypt.compare(loginPassword, user.loginPassword);
-    if (!isPasswordCorrect) return res.status(401).json({ message: "รหัสผ่านไม่ถูกต้อง" });
+    if (!isPasswordCorrect) {
+      // 📝 เก็บ Log เข้าสู่ระบบล้มเหลว (รหัสผิด)
+      await writeAuditLog({ actorEmail: email, action: "USER_LOGIN_FAILED", details: { reason: "Wrong Password" }, ipAddress: req.ip });
+      return res.status(401).json({ message: "รหัสผ่านไม่ถูกต้อง" });
+    }
 
     const token = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: "1d" });
+
+    // 📝 เก็บ Log เข้าสู่ระบบสำเร็จ
+    await writeAuditLog({ actorEmail: email, actorRole: user.role || "user", action: "USER_LOGIN_SUCCESS", ipAddress: req.ip });
 
     res.json({ 
       token, 
@@ -346,6 +383,60 @@ app.get("/candidates", async (req, res) => {
   }
 });
 
+// 🛡️ Middleware: ด่านตรวจจับเฉพาะ Admin
+const verifyAdmin = async (req, res, next) => {
+  try {
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.split(" ")[1];
+    
+    if (!token) return res.status(401).json({ message: "Access Denied: ไม่พบ Token" });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await db.collection("users").findOne({ _id: new ObjectId(decoded.userId) });
+
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ message: "Forbidden: สิทธิ์ถูกปฏิเสธ (เฉพาะ Admin)" });
+    }
+
+    // ✅ เพิ่มบรรทัดนี้: แนบข้อมูลแอดมินเข้าไปใน req เพื่อให้ API อื่นรู้ว่าใครเป็นคนทำรายการ
+    req.user = user;
+
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid Token: เซสชั่นหมดอายุ" });
+  }
+};
+
+// =======================
+// 📋 API: ดึงข้อมูล Audit Logs สำหรับนำไปแสดงใน Frontend (เพิ่มใหม่)
+// =======================
+app.get("/admin/logs", verifyAdmin, async (req, res) => {
+  try {
+    // รองรับการแบ่งหน้า (Pagination) เบื้องต้น
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
+    const logs = await db.collection("audit_logs")
+      .find({})
+      .sort({ timestamp: -1 }) // เรียงจากล่าสุดไปเก่า
+      .skip(skip)
+      .limit(limit)
+      .toArray();
+
+    const total = await db.collection("audit_logs").countDocuments();
+
+    res.json({
+      logs,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // =======================
 // ⚙️ 5. System Settings (Admin Control: เปิด-ปิด ระบบเลือกตั้ง) 🔥 (ใหม่)
 // =======================
@@ -364,45 +455,144 @@ app.get("/election-status", async (req, res) => {
   }
 });
 
-// 🛡️ Middleware: ด่านตรวจจับเฉพาะ Admin (ย้ายมาไว้ข้างบนเพื่อให้ใช้ได้หลายที่)
-const verifyAdmin = async (req, res, next) => {
-  try {
-    const authHeader = req.headers["authorization"];
-    const token = authHeader && authHeader.split(" ")[1];
-    
-    if (!token) return res.status(401).json({ message: "Access Denied: ไม่พบ Token" });
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await db.collection("users").findOne({ _id: new ObjectId(decoded.userId) });
-
-    if (!user || user.role !== "admin") {
-      return res.status(403).json({ message: "Forbidden: สิทธิ์ถูกปฏิเสธ (เฉพาะ Admin)" });
-    }
-
-    next();
-  } catch (err) {
-    return res.status(401).json({ message: "Invalid Token: เซสชั่นหมดอายุ" });
-  }
-};
-
 // 📌 5.2 แอดมินตั้งค่าระบบ (รับค่า endTime มาบันทึก)
 app.post("/admin/toggle-election", verifyAdmin, async (req, res) => {
   try {
-    const { isOpen, startTime, endTime } = req.body; // ✅ รับ startTime มาด้วย
+    const { isOpen, startTime, endTime } = req.body;
 
+    // 1️⃣ บันทึกสถานะระบบ
     await db.collection("settings").updateOne(
       { _id: "electionState" },
-      { $set: { 
-          isOpen: Boolean(isOpen), 
-          startTime: startTime || null, // ✅ บันทึกเวลาเปิด
-          endTime: endTime || null 
-        } 
+      {
+        $set: {
+          isOpen: Boolean(isOpen),
+          startTime: startTime || null,
+          endTime: endTime || null
+        }
       },
       { upsert: true }
     );
 
-    res.json({ message: "อัปเดตการตั้งค่าสำเร็จ", isOpen, startTime, endTime });
+    // 2️⃣ ดึง email ผู้ใช้ทั้งหมด
+    const users = await db.collection("users")
+      .find({ isVerified: true }) // ส่งเฉพาะคนที่ยืนยัน email แล้ว
+      .toArray();
+
+    const emails = users.map(u => u.email);
+    const formatDate = (date) => {
+  if (!date) return "-";
+  return new Date(date).toLocaleString("th-TH", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+};
+const formatThaiDate = (date) => {
+  if (!date) return "-";
+  const d = new Date(date);
+
+  return d.toLocaleString("th-TH", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }) + " น.";
+};
+    // 3️⃣ สร้างเนื้อหา email
+    const emailHtml = `
+<div style="background:#f0fdf4;padding:40px 15px;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <div style="max-width:600px;margin:auto;background:#ffffff;border-radius:16px;
+              overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.08);
+              border:1px solid #e2e8f0;">
+
+    <!-- HEADER -->
+    <div style="background:#047857;padding:35px;text-align:center;">
+      <h1 style="color:#fff;margin:0;font-size:32px;font-weight:900;">
+        KU<span style="color:#6ee7b7;">Vote</span>
+      </h1>
+      <p style="color:#a7f3d0;margin-top:6px;font-size:14px;">
+        ระบบเลือกตั้งประธานนิสิต
+      </p>
+    </div>
+
+    <!-- BODY -->
+    <div style="padding:40px 30px;text-align:center;color:#334155;">
+
+      <div style="font-size:50px;margin-bottom:10px;">🗳️</div>
+
+      <h2 style="margin-top:10px;color:#0f172a;">
+        ${isOpen ? "การเลือกตั้งเปิดแล้ว!" : "การเลือกตั้งถูกปิดแล้ว"}
+      </h2>
+
+      <p style="font-size:16px;color:#475569;margin-top:10px;">
+        ${isOpen 
+          ? "ขณะนี้ระบบเปิดให้ลงคะแนนเสียงแล้ว คุณสามารถเข้าไปเลือกผู้สมัครที่คุณสนับสนุนได้ทันที"
+          : "ระบบเลือกตั้งถูกปิดเรียบร้อยแล้ว ขอบคุณทุกท่านที่ร่วมใช้สิทธิ์"
+        }
+      </p>
+
+      <!-- TIME BOX -->
+      <div style="background:#f1f5f9;border:1px solid #e2e8f0;
+                  border-radius:10px;padding:18px;margin-top:25px;
+                  font-size:15px;color:#334155;line-height:1.8;">
+        ⏰ <b>เวลาเปิดระบบ:</b> ${formatThaiDate(startTime)}<br>
+        ⛔ <b>เวลาปิดระบบ:</b> ${formatThaiDate(endTime)}
+      </div>
+
+      ${
+        isOpen
+        ? `
+        <!-- BUTTON -->
+        <a href="${process.env.FRONTEND_URL || "http://localhost:3000"}"
+           style="display:inline-block;margin-top:30px;
+                  background:#10b981;color:white;
+                  padding:16px 40px;border-radius:10px;
+                  text-decoration:none;font-weight:bold;
+                  font-size:16px;box-shadow:0 4px 10px rgba(16,185,129,0.3);">
+          ไปลงคะแนนเสียงตอนนี้
+        </a>
+        `
+        : ""
+      }
+
+      <p style="margin-top:30px;font-size:13px;color:#64748b;">
+        เสียงของคุณมีความสำคัญต่ออนาคตของนิสิตทุกคน
+      </p>
+
+    </div>
+
+    <!-- FOOTER -->
+    <div style="background:#f8fafc;padding:20px;text-align:center;
+                border-top:1px solid #e2e8f0;">
+      <p style="font-size:12px;color:#94a3b8;margin:0;">
+        © 2026 KU Vote System – Kasetsart University<br>
+        อีเมลนี้ถูกส่งโดยระบบอัตโนมัติ
+      </p>
+    </div>
+
+  </div>
+</div>
+`;
+    // 4️⃣ ส่ง email
+    await transporter.sendMail({
+      from: `"KUVote System" <${process.env.EMAIL_USER}>`,
+      bcc: emails, // ใช้ BCC เพื่อไม่ให้เห็น email กัน
+      subject: "📢 การตั้งค่าระบบเลือกตั้ง KU",
+      html: emailHtml
+    });
+
+    res.json({
+      message: "อัปเดตระบบและส่ง Email แจ้งผู้ใช้เรียบร้อยแล้ว",
+      isOpen,
+      startTime,
+      endTime
+    });
+
   } catch (err) {
+    console.error("❌ Toggle Election Error:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -447,6 +637,16 @@ app.post("/vote", async (req, res) => {
         { candidateId: parseInt(candidateId) },
         { $inc: { votes: 1 } }
     );
+
+    // 📝 เก็บ Log การใช้สิทธิ์ลงคะแนน
+    await writeAuditLog({
+      actorEmail: email,
+      actorRole: "user",
+      action: "USER_VOTED",
+      targetType: "blockchain_tx",
+      targetId: tx.hash,
+      ipAddress: req.ip
+    });
 
     res.json({ 
       message: "โหวตสำเร็จ! ข้อมูลถูกบันทึกลง Blockchain เรียบร้อยแล้ว",
@@ -816,6 +1016,17 @@ app.put("/admin/users/:id", verifyAdmin, async (req, res) => {
     if (result.matchedCount === 0) {
       return res.status(404).json({ message: "ไม่พบผู้ใช้ที่ต้องการแก้ไข" });
     }
+    
+    // 📝 เก็บ Log แอดมินแก้ไขข้อมูลผู้ใช้
+    await writeAuditLog({
+      actorEmail: req.user.email,
+      actorRole: "admin",
+      action: "ADMIN_UPDATE_USER",
+      targetType: "user",
+      targetId: id,
+      details: { updatedFaculty: faculty, updatedRole: role },
+      ipAddress: req.ip
+    });
 
     res.json({ message: "อัปเดตข้อมูลคณะและบทบาทสำเร็จ" });
   } catch (err) {
@@ -855,7 +1066,7 @@ app.put("/candidates/:id",verifyAdmin, async (req, res) => {
     if (status === "approved" && !txHash) {
        console.log(`🚀 Admin Approved: Adding [${candidate.name}] to Blockchain...`);
        
-       const tx = await contract.addCandidate(candidate.name);
+       const tx = await contract.addCandidate(candidate.candidateId, candidate.name);
        console.log(`⏳ Transaction sent! Hash: ${tx.hash}`);
        
        await tx.wait(); 
@@ -874,11 +1085,210 @@ app.put("/candidates/:id",verifyAdmin, async (req, res) => {
         } 
       }
     );
+    
+    // 📝 เก็บ Log แอดมินจัดการสถานะผู้สมัคร
+    await writeAuditLog({
+      actorEmail: req.user.email,
+      actorRole: "admin",
+      action: "ADMIN_UPDATE_CANDIDATE_STATUS",
+      targetType: "candidate",
+      targetId: id,
+      details: { newStatus: status, rejectReason },
+      ipAddress: req.ip
+    });
 
     res.json({ message: `อัปเดตสถานะเป็น ${status} สำเร็จ!`, txHash });
   } catch (err) {
     console.error("PUT Candidate Status Error:", err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// =======================
+// 📣 Announcement System
+// =======================
+
+// 1. API ดึงประกาศทั้งหมด (สำหรับให้หน้า Admin ดู)
+app.get("/admin/announcements", verifyAdmin, async (req, res) => {
+  try {
+    const announcements = await db.collection("announcements")
+      .find({})
+      .sort({ createdAt: -1 }) // เรียงจากใหม่ไปเก่า
+      .toArray();
+    res.json(announcements);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2. API ดึงเฉพาะประกาศที่เปิดใช้งานอยู่ (สำหรับโชว์ที่แถบด้านบนให้ User ทุกคนเห็น)
+app.get("/announcements", async (req, res) => {
+  try {
+    const activeAnnouncements = await db.collection("announcements")
+      .find({ isActive: true })
+      .sort({ createdAt: -1 })
+      .toArray();
+    res.json(activeAnnouncements);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/admin/announcements", verifyAdmin, async (req, res) => {
+  try {
+    const { title, message, type, isPinned, expiresAt } = req.body;
+
+    if (!title || !message) {
+      return res.status(400).json({ message: "กรุณาระบุหัวข้อและรายละเอียดประกาศ" });
+    }
+
+    const announcement = {
+      title: String(title).trim(),
+      message: String(message).trim(),
+      type: ["info", "warning", "success"].includes(type) ? type : "info",
+      isPinned: Boolean(isPinned),
+      isActive: true,
+      expiresAt: expiresAt ? new Date(expiresAt) : null,
+      createdAt: new Date(),
+      createdBy: req.user?.email || "admin", 
+    };
+
+    const result = await db.collection("announcements").insertOne(announcement);
+    
+    // ✅ นำส่วนเก็บ Log ที่เคยคอมเมนต์ไว้กลับมาใช้จริง
+    await writeAuditLog({
+      actorEmail: req.user.email,
+      actorRole: "admin",
+      action: "ADMIN_CREATE_ANNOUNCEMENT",
+      targetType: "announcement",
+      targetId: result.insertedId.toString(),
+      details: {
+        title: announcement.title,
+        type: announcement.type,
+        isPinned: announcement.isPinned,
+      },
+      ipAddress: req.ip
+    });
+
+    res.status(201).json({ message: "สร้างประกาศสำเร็จ", id: result.insertedId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/admin/announcements/:id", verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // ลบข้อมูลออกจาก Database เลย
+    const result = await db.collection("announcements").deleteOne({ _id: new ObjectId(id) });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ message: "ไม่พบประกาศที่ต้องการลบ" });
+    }
+
+    // 📝 เก็บ Log แอดมินลบประกาศ
+    await writeAuditLog({
+      actorEmail: req.user.email,
+      actorRole: "admin",
+      action: "ADMIN_DELETE_ANNOUNCEMENT",
+      targetType: "announcement",
+      targetId: id,
+      ipAddress: req.ip
+    });
+
+    res.json({ message: "ลบประกาศออกจากระบบสำเร็จ" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/admin/candidates", verifyAdmin, async (req, res) => {
+  try {
+
+    const candidates = await db.collection("candidates")
+      .find({})
+      .toArray();
+
+    res.json(candidates);
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/admin/candidates", async (req, res) => {
+  const candidates = await db.collection("candidates")
+    .find()
+    .sort({ candidateId: 1 })
+    .toArray();
+
+  res.json(candidates);
+});
+
+app.post("/candidates/check-email", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const existing = await db.collection("candidates").findOne({ email });
+
+    if (existing) {
+      return res.json({ exists: true });
+    }
+
+    res.json({ exists: false });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// =======================
+// 🧹 API สำหรับล้างระบบ (Reset System) - เฉพาะ Admin
+// =======================
+app.post("/admin/reset-election", verifyAdmin, async (req, res) => {
+  try {
+    console.log("⚠️ [ADMIN] เริ่มกระบวนการล้างระบบเลือกตั้ง...");
+
+    // 1. รีเซ็ตสถานะโหวตของ User ทุกคน
+    const resetUsers = await db.collection("users").updateMany(
+      {},
+      { $set: { hasVoted: false, transactionHash: null } }
+    );
+
+    // 2. ลบรายชื่อผู้สมัครทั้งหมด
+    const clearCandidates = await db.collection("candidates").deleteMany({});
+
+    // 3. รีเซ็ตตัวนับเลขเบอร์ผู้สมัคร (Counter) ให้กลับไปเริ่มที่ 0
+    const resetCounter = await db.collection("counters").updateOne(
+      { _id: "candidateId" },
+      { $set: { seq: 0 } },
+      { upsert: true }
+    );
+
+    // 📝 เก็บ Log การรีเซ็ตระบบ
+    await writeAuditLog({
+      actorEmail: req.user.email,
+      actorRole: "admin",
+      action: "ADMIN_RESET_ELECTION_SYSTEM",
+      details: {
+        usersAffected: resetUsers.modifiedCount,
+        candidatesRemoved: clearCandidates.deletedCount
+      },
+      ipAddress: req.ip
+    });
+
+    res.json({
+      message: "ล้างระบบสำเร็จ! ระบบพร้อมสำหรับการเลือกตั้งรอบใหม่แล้ว",
+      details: {
+        usersReset: resetUsers.modifiedCount,
+        candidatesCleared: clearCandidates.deletedCount
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ [RESET ERROR]:", err);
+    res.status(500).json({ error: "เกิดข้อผิดพลาดในการล้างระบบ", details: err.message });
   }
 });
 

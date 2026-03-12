@@ -1,10 +1,18 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import ChatWidget from "../ChatWidget"; // ✅ 1. นำเข้า ChatWidget (ปรับ path ให้ตรงกับที่อยู่ไฟล์)
+import ChatWidget from "../ChatWidget"; 
 
 export default function Layout({ children, fullScreen = false, hideHeader = false, hideSidebar = false }) {
   const [open, setOpen] = useState(window.innerWidth > 768);
   const [user, setUser] = useState(null);
+  
+  // ✅ State สำหรับเก็บประกาศ
+  const [announcements, setAnnouncements] = useState([]); 
+  const [currentAnnIndex, setCurrentAnnIndex] = useState(0);
+  
+  // ✅ เพิ่ม State สำหรับซ่อน/แสดงแถบประกาศทั้งหมด (ปุ่มกากบาท)
+  const [showBanner, setShowBanner] = useState(true);
+  
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -38,21 +46,44 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
     }
   }, [location.pathname]);
 
+  // ✅ ดึงข้อมูลประกาศจาก Backend
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:8000";
+        const res = await fetch(`${API_BASE}/announcements`);
+        if (res.ok) {
+          const data = await res.json();
+          setAnnouncements(data);
+          setCurrentAnnIndex(0); 
+        }
+      } catch (err) {
+        console.error("Failed to fetch announcements:", err);
+      }
+    };
+
+    fetchAnnouncements();
+  }, [location.pathname]); 
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     navigate("/login");
   };
 
-  // ✅ เช็คจาก role ที่ส่งมาจาก Database ล้วนๆ
   const isAdmin = user && user.role === "admin";
 
-  // ถ้าเป็นหน้า Full Screen (เช่น Dashboard) ให้แสดงแบบไม่มี Sidebar และ Header
+  const nextAnnouncement = () => {
+    setCurrentAnnIndex((prev) => (prev + 1) % announcements.length);
+  };
+  const prevAnnouncement = () => {
+    setCurrentAnnIndex((prev) => (prev - 1 + announcements.length) % announcements.length);
+  };
+
   if (fullScreen) {
     return (
       <div className="w-full h-screen overflow-auto m-0 p-0 relative">
         {children}
-        {/* ✅ 2. ใส่ ChatWidget ในหน้า Full Screen (ซ่อนถ้าเป็น Admin) */}
         {user && user.email && !isAdmin && <ChatWidget userEmail={user.email} />}
       </div>
     );
@@ -111,45 +142,37 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
         <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto">
           <MenuItem open={open} to="/" icon="🏠" text="หน้าหลัก" active={location.pathname === "/"} />
           <MenuItem open={open} to={user ? "/candidates" : "/login"} icon="👥" text="ผู้สมัคร" active={location.pathname === "/candidates"} />
-          
-          {/* ✅ เพิ่มเมนู ระบบแนะนำ เข้าไปตรงนี้ครับ */}
           <MenuItem open={open} to={user ? "/recommend" : "/login"} icon="🎯" text="ค้นหาคนที่ใช่" active={location.pathname === "/recommend"} />
-          
           <MenuItem open={open} to={user ? "/vote" : "/login"} icon="🗳️" text="ลงคะแนนเสียง" active={location.pathname === "/vote"} />
           <MenuItem open={open} to={user ? "/dashboard" : "/login"} icon="📊" text="ผลการเลือกตั้ง" active={location.pathname === "/dashboard"} />
           
-          {/* เมนูสำหรับ Admin */}
           {isAdmin && (
             <>
             <MenuItem open={open} to={user ? "/select-position" : "/login"} icon="➕" text="สมัคร" active={location.pathname === "/select-position"} />
-            <MenuItem 
-              open={open} 
-              to="/admin-chat" 
-              icon="💬" 
-              text="ตอบแชท (Admin)" 
-              active={location.pathname === "/admin-chat"} 
-            />
+            <MenuItem open={open} to="/admin-chat" icon="💬" text="ตอบแชท (Admin)" active={location.pathname === "/admin-chat"} />
             <MenuItem open={open} to="/admin/users" icon="⚙️" text="จัดการผู้ใช้" active={location.pathname === "/admin/users"} />
+            <MenuItem open={open} to="/candidate-management" icon="🛠️" text="ตรวจสอบผู้สมัคร" active={location.pathname === "/candidate-management"} />
+            <MenuItem open={open} to="/admin-dashboard" icon="🎉" text="จัดการเลือกตั้ง" active={location.pathname === "/admin-dashboard"} />
+            <MenuItem open={open} to="/admin-announcements" icon="📣" text="ประกาศแจ้งเตือน" active={location.pathname === "/admin-announcements"} />
             <MenuItem 
               open={open} 
-              to="/candidate-management" 
-              icon="🛠️" 
-              text="ตรวจสอบผู้สมัคร" 
-              active={location.pathname === "/candidate-management"} 
+              to="/admin-audit-logs" 
+              icon="🧾" 
+              text="Audit Log" 
+              active={location.pathname === "/admin-audit-logs"} 
             />
             <MenuItem 
               open={open} 
-              to="/admin-dashboard" 
-              icon="⚙️" 
-              text="จัดการเลือกตั้ง" 
-              active={location.pathname === "/admin-dashboard"} 
+              to="/admin-image-generator" 
+              icon="🖼️" 
+              text="Image Generator" 
+              active={location.pathname === "/admin-image-generator"} 
             />
             </>
             
           )}
         </nav>
 
-        {/* Footer Credit */}
         <div className={`p-6 text-xs text-emerald-100/60 text-center transition-all duration-500 shrink-0 ${!open && "md:opacity-0 md:translate-y-10"}`}>
             <p>© 2026 KU Vote System</p>
         </div>
@@ -161,9 +184,8 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
         
         {/* Header */}
         {!hideHeader && (
-        <header className="h-16 md:h-20 bg-white/80 backdrop-blur-md shadow-sm flex items-center justify-between px-4 md:px-8 z-10 sticky top-0 border-b border-slate-100 shrink-0">
+        <header className="h-16 md:h-20 bg-white/80 backdrop-blur-md shadow-sm flex items-center justify-between px-4 md:px-8 z-20 sticky top-0 border-b border-slate-100 shrink-0">
           
-          {/* Left Side: Hamburger & Logo */}
           <div className="flex items-center gap-3 md:gap-4">
              <button 
                 onClick={() => setOpen(true)}
@@ -183,14 +205,10 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
              </div>
           </div>
 
-          {/* Right Side: User Info & Status */}
           <div className="flex items-center gap-3 md:gap-6 animate-fade-in">
             {user ? (
                 <div className="flex items-center gap-3 md:gap-4">
-                    
-                    {/* ✅ ส่วนแสดงสถานะ: ปรับให้โชว์ตลอด (ลบ hidden) และปรับขนาดให้ใหญ่ขึ้น */}
                     <div className="flex flex-col items-end md:items-end">
-                         {/* สถานะการโหวต */}
                         <div className={`
                             flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm font-bold transition-all
                             ${user.hasVoted 
@@ -204,7 +222,6 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
                              </span>
                         </div>
 
-                        {/* ชื่ออีเมล/คณะ: ซ่อนในมือถือ เพื่อประหยัดที่ (hidden md:block) */}
                         <div className="hidden md:flex items-center gap-2 mt-1">
                             <span className="text-xs text-slate-500">{user.email}</span>
                             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${isAdmin ? 'text-blue-600 bg-blue-50 border-blue-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}>
@@ -215,7 +232,6 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
                     
                     <div className="h-8 w-px bg-slate-200 hidden md:block"></div>
 
-                    {/* ปุ่ม Logout: มือถือโชว์แค่ไอคอน, คอมโชว์ข้อความ */}
                     <button
                         onClick={handleLogout}
                         className="flex items-center gap-2 px-2 py-2 md:px-4 md:py-2 rounded-xl bg-red-50 text-red-600 border border-red-100 
@@ -246,12 +262,107 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
         </header>
         )}
 
+        {/* ================= แถบประกาศแจ้งเตือน (เลื่อนได้ + มีปุ่มปิด) ================= */}
+        {/* ✅ เพิ่มเงื่อนไข && showBanner เพื่อใช้ปุ่มกากบาทปิดได้ */}
+        {!hideHeader && showBanner && announcements.length > 0 && (
+          <div className="w-full z-10 shrink-0 flex flex-col bg-slate-50 shadow-sm relative">
+            
+            {/* ฝัง CSS สำหรับตัวเลื่อน (Marquee) ไว้ตรงนี้ */}
+            <style>{`
+              .scrolling-content {
+                display: inline-block;
+                white-space: nowrap;
+                padding-left: 100%; /* ดันข้อความไปรอขวาสุด */
+                animation: marquee 20s linear infinite; /* ความเร็วในการเลื่อน */
+              }
+              /* เมื่อเอาเมาส์ชี้ให้หยุดเลื่อน */
+              .scrolling-wrapper:hover .scrolling-content {
+                animation-play-state: paused; 
+              }
+              @keyframes marquee {
+                0%   { transform: translate(0, 0); }
+                100% { transform: translate(-100%, 0); }
+              }
+            `}</style>
+
+            {(() => {
+              const ann = announcements[currentAnnIndex];
+              if (!ann) return null; 
+              
+              let bgColor = "bg-sky-600";
+              let icon = "📢";
+              if (ann.type === "warning") { bgColor = "bg-rose-600"; icon = "⚠️"; }
+              if (ann.type === "success") { bgColor = "bg-emerald-600"; icon = "🎉"; }
+
+              return (
+                <div key={ann._id} className={`${bgColor} text-white px-3 py-2 text-sm md:text-base font-medium flex items-center justify-between border-b border-white/20 transition-all`}>
+                  
+                  {/* ปุ่มย้อนกลับ (แสดงเมื่อมีมากกว่า 1 ประกาศ) */}
+                  {announcements.length > 1 ? (
+                    <button onClick={prevAnnouncement} className="p-1.5 hover:bg-black/20 rounded-full transition-colors z-10 shrink-0">
+                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                       </svg>
+                    </button>
+                  ) : <div className="w-8 shrink-0"></div>}
+
+                  {/* ✅ เนื้อหาประกาศ (ระบบเลื่อนอัตโนมัติ) */}
+                  <div className="flex-1 overflow-hidden relative mx-2 flex items-center scrolling-wrapper">
+                    <div className="scrolling-content flex items-center gap-2 cursor-default">
+                      <span className="animate-pulse shrink-0">{icon}</span>
+                      <span className="font-bold shrink-0">{ann.title}:</span>
+                      <span>{ann.message}</span>
+                    </div>
+                  </div>
+
+                  {/* ฝั่งขวา: ปุ่มถัดไป และ ปากกากบาท (Close) */}
+                  <div className="flex items-center gap-1 z-10 shrink-0 border-l border-white/20 pl-2 ml-1">
+                    {announcements.length > 1 && (
+                      <button onClick={nextAnnouncement} className="p-1.5 hover:bg-black/20 rounded-full transition-colors flex items-center gap-1">
+                         <span className="hidden md:inline text-xs font-normal">ถัดไป</span>
+                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                         </svg>
+                      </button>
+                    )}
+                    
+                    {/* ✅ ปุ่มกากบาท (ซ่อน Banner) */}
+                    <button 
+                      onClick={() => setShowBanner(false)} 
+                      className="p-1.5 hover:bg-black/20 rounded-full transition-colors text-white/90 hover:text-white"
+                      title="ปิดประกาศ"
+                    >
+                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                       </svg>
+                    </button>
+                  </div>
+
+                </div>
+              );
+            })()}
+            
+            {/* จุด Indicator (ไข่ปลา) บอกตำแหน่งประกาศ */}
+            {announcements.length > 1 && (
+              <div className="flex justify-center gap-1.5 py-1.5 bg-slate-100/80 border-b border-slate-200">
+                {announcements.map((_, idx) => (
+                  <button 
+                    key={idx} 
+                    onClick={() => setCurrentAnnIndex(idx)}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentAnnIndex ? 'w-4 bg-emerald-500' : 'w-1.5 bg-slate-300 hover:bg-slate-400'}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Scrollable Content */}
         <main className="flex-1 overflow-y-auto scroll-smooth relative">
           {children}
         </main>
         
-        {/* ✅ 3. แทรก ChatWidget ลอยอยู่ล่างขวาของทุกหน้าที่ถูกครอบด้วย Layout นี้ (ซ่อนถ้าเป็น Admin) */}
+        {/* ChatWidget */}
         {user && user.email && !isAdmin && <ChatWidget userEmail={user.email} />}
 
       </div>

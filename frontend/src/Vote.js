@@ -7,6 +7,10 @@ export default function Vote() {
   const [candidates, setCandidates] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // ✅ 1. เพิ่ม State ควบคุมการกดโหวต เพื่อกันกดเบิ้ล
+  const [isVoting, setIsVoting] = useState(false); 
+  
   const navigate = useNavigate();
 
   // ดึงข้อมูลผู้ใช้จาก localStorage
@@ -70,8 +74,8 @@ export default function Vote() {
 
   // 2. ฟังก์ชันกดโหวต
   const handleVote = async () => {
-    // แก้ไขจาก !selectedId เป็นเช็ค null เพื่อให้โหวตเบอร์ 0 (งดออกเสียง) ได้
-    if (selectedId === null) return;
+    // ✅ 2. เช็คว่ากำลังบันทึกข้อมูลอยู่หรือไม่ ถ้าใช่ให้หยุดทำงานทันที
+    if (selectedId === null || isVoting) return;
 
     // เช็คว่า Login หรือยัง
     if (!user || !user.email) {
@@ -100,7 +104,14 @@ export default function Vote() {
 
     if (pin) {
       try {
-        Swal.fire({ title: 'กำลังบันทึกคะแนน...', didOpen: () => Swal.showLoading() });
+        setIsVoting(true); // ✅ 3. ล็อคปุ่มโหวตทันที
+        
+        // ✅ ป้องกันไม่ให้คลิกด้านนอกแล้วกล่องหาย
+        Swal.fire({ 
+          title: 'กำลังบันทึกคะแนนลง Blockchain...', 
+          allowOutsideClick: false, 
+          didOpen: () => Swal.showLoading() 
+        });
 
         const token = localStorage.getItem("token");
         
@@ -126,7 +137,7 @@ export default function Vote() {
           await Swal.fire({
             icon: 'success',
             title: 'โหวตสำเร็จ!',
-            text: 'ขอบคุณที่ใช้สิทธิ์เลือกตั้ง',
+            text: 'ข้อมูลของคุณถูกบันทึกลง Blockchain เรียบร้อยแล้ว',
             confirmButtonColor: '#10b981'
           });
           navigate("/dashboard");
@@ -139,7 +150,9 @@ export default function Vote() {
           });
         }
       } catch (error) {
-        Swal.fire("Error", "เชื่อมต่อ Server ไม่ได้", "error");
+        Swal.fire("Error", "เชื่อมต่อ Server ไม่ได้ กรุณาลองใหม่อีกครั้ง", "error");
+      } finally {
+        setIsVoting(false); // ✅ 4. ปลดล็อคปุ่มเมื่อทำงานเสร็จ (ไม่ว่าจะสำเร็จหรือพัง)
       }
     }
   };
@@ -174,7 +187,7 @@ export default function Vote() {
               {candidates.map((candidate) => (
                 <div
                   key={candidate.candidateId}
-                  onClick={() => setSelectedId(candidate.candidateId)}
+                  onClick={() => !isVoting && setSelectedId(candidate.candidateId)} // ✅ ห้ามเปลี่ยนเบอร์ตอนระบบกำลังโหลด
                   className={`
                     group relative cursor-pointer rounded-3xl p-5 transition-all duration-300 border-2 bg-white flex flex-col h-full
                     ${selectedId === candidate.candidateId 
@@ -192,7 +205,6 @@ export default function Vote() {
                     </svg>
                   </div>
 
-                  
                   {/* ส่วนรูปภาพ */}
                   <div className="aspect-[4/3] rounded-2xl overflow-hidden mb-4 bg-slate-100 relative shadow-inner group-hover:shadow-md transition-all">
                     {candidate.profileImage ? (
@@ -207,7 +219,6 @@ export default function Vote() {
                         <span className="text-xs font-medium">ไม่มีรูปภาพ</span>
                       </div>
                     )}
-                    
                     
                     {/* เบอร์ผู้สมัคร */}
                     <div className="absolute bottom-2 left-2 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-lg border border-slate-100 flex items-center gap-2">
@@ -241,7 +252,7 @@ export default function Vote() {
             {/* === ปุ่มงดออกเสียง (No Vote) === */}
             <div className="flex justify-center mt-12 px-4">
               <button
-                onClick={() => setSelectedId(0)} 
+                onClick={() => !isVoting && setSelectedId(0)} // ✅ ห้ามเปลี่ยนใจตอนกำลังโหลด
                 className={`
                   flex items-center gap-3 px-8 py-4 rounded-2xl border-2 transition-all duration-300
                   ${selectedId === 0 
@@ -266,26 +277,37 @@ export default function Vote() {
         >
           <button
             onClick={handleVote}
+            disabled={isVoting} // ✅ ปิดปุ่มเมื่อกำลังโหลด
             className={`
               group flex items-center gap-4 pl-8 pr-2 py-2 text-white rounded-full shadow-2xl transition-all duration-300 ring-4 ring-white border
               ${selectedId === 0 
-                ? "bg-slate-800 hover:bg-slate-900 shadow-slate-500/40 border-slate-700" 
-                : "bg-slate-900 hover:bg-emerald-600 shadow-emerald-500/40 border-slate-800/50"} 
+                ? "bg-slate-800 shadow-slate-500/40 border-slate-700" 
+                : "bg-slate-900 shadow-emerald-500/40 border-slate-800/50"} 
+              ${isVoting ? "opacity-75 cursor-not-allowed" : "hover:bg-emerald-600 hover:scale-105"}
             `}
           >
             <div className="flex flex-col text-left">
                <span className="text-[10px] text-slate-400 group-hover:text-emerald-100 font-bold uppercase tracking-wider">
-                 {selectedId === 0 ? "ยืนยันเลือก" : "ยืนยันเลือกเบอร์"}
+                 {isVoting ? "กรุณารอสักครู่..." : (selectedId === 0 ? "ยืนยันเลือก" : "ยืนยันเลือกเบอร์")}
                </span>
                <span className={`font-black leading-none ${selectedId === 0 ? "text-xl" : "text-2xl"}`}>
-                 {selectedId === 0 ? "งดออกเสียง" : selectedId}
+                 {isVoting ? "กำลังบันทึก" : (selectedId === 0 ? "งดออกเสียง" : selectedId)}
                </span>
             </div>
             
             <div className="bg-white text-slate-900 w-14 h-14 rounded-full flex items-center justify-center ml-2 group-hover:scale-110 group-active:scale-95 transition-transform shadow-lg">
-               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-7 h-7">
-                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-               </svg>
+               {isVoting ? (
+                  // SVG ตัวหมุน Loading
+                  <svg className="animate-spin h-6 w-6 text-emerald-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+               ) : (
+                  // SVG ลูกศรปกติ
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-7 h-7">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+               )}
             </div>
           </button>
         </div>
