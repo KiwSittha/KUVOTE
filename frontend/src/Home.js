@@ -2,6 +2,18 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Layout from "./components/Layout";
 
+const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:8000";
+const HOME_BANNER_DISMISS_PREFIX = "kuvote-home-banner-dismissed:";
+
+function formatThaiDateOnly(isoString) {
+  if (!isoString) return "";
+  return new Date(isoString).toLocaleDateString("th-TH", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 export default function Home() {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [status, setStatus] = useState("loading"); // loading, waiting, normal, urgent, critical, ended
@@ -10,13 +22,29 @@ export default function Home() {
   const [displayDateText, setDisplayDateText] = useState("กำลังโหลดข้อมูล...");
   const [dateLabel, setDateLabel] = useState("");
 
+  const [homeBanner, setHomeBanner] = useState(null);
+  const [showBannerModal, setShowBannerModal] = useState(false);
+
+  const getBannerDismissKey = (banner) => {
+    if (!banner?.imageUrl) return null;
+    return `${HOME_BANNER_DISMISS_PREFIX}${banner.publishedAt || banner.label || banner.imageUrl.slice(0, 48)}`;
+  };
+
+  const closeBannerModal = () => {
+    const dismissKey = getBannerDismissKey(homeBanner);
+    if (dismissKey) {
+      localStorage.setItem(dismissKey, "1");
+    }
+    setShowBannerModal(false);
+  };
+
   // ==============================
   // 1. ดึงวันที่จาก Backend
   // ==============================
   useEffect(() => {
     const fetchElectionConfig = async () => {
       try {
-        const res = await fetch("http://localhost:8000/election-status"); 
+        const res = await fetch(`${API_BASE}/election-status`); 
         const data = await res.json();
         
         if (data.startTime || data.endTime) {
@@ -33,6 +61,49 @@ export default function Home() {
     };
     fetchElectionConfig();
   }, []);
+
+  // ==============================
+  // ดึง Home Banner
+  // ==============================
+  useEffect(() => {
+    const fetchBanner = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/home-banner`);
+        const data = await res.json();
+        if (data.imageUrl) {
+          setHomeBanner(data);
+          const dismissKey = getBannerDismissKey(data);
+          const isDismissed = dismissKey ? localStorage.getItem(dismissKey) === "1" : false;
+          setShowBannerModal(!isDismissed);
+        }
+      } catch (err) {
+        console.error("Error fetching home banner:", err);
+      }
+    };
+    fetchBanner();
+  }, []);
+
+  useEffect(() => {
+    if (!showBannerModal) {
+      document.body.style.overflow = "";
+      return undefined;
+    }
+
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closeBannerModal();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showBannerModal, homeBanner]);
 
   // ฟังก์ชันแปลงเวลาเป็นภาษาไทย
   const formatThaiDate = (isoString) => {
@@ -100,6 +171,75 @@ export default function Home() {
 
   return (
     <Layout>
+      {/* Popup Banner Modal */}
+      {showBannerModal && homeBanner?.imageUrl && (
+        <div
+          className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center bg-black/65 backdrop-blur-sm p-0 sm:p-4"
+          onClick={closeBannerModal}
+        >
+          <div
+            className="relative w-full sm:max-w-2xl rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-[0_32px_80px_-10px_rgba(0,0,0,0.55)] flex flex-col animate-slide-up"
+            style={{ animation: "slideUp 0.32s cubic-bezier(0.34,1.56,0.64,1) both" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <style>{`
+              @keyframes slideUp {
+                from { opacity: 0; transform: translateY(40px) scale(0.97); }
+                to   { opacity: 1; transform: translateY(0)     scale(1);    }
+              }
+            `}</style>
+
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-800 to-green-600 px-5 py-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-sm">📢</span>
+                <div>
+                  <p className="text-white font-bold text-sm leading-tight">ประกาศจากมหาวิทยาลัย</p>
+                  {homeBanner.publishedAt && (
+                    <p className="text-emerald-200 text-[11px] leading-tight">
+                      เผยแพร่เมื่อ {formatThaiDateOnly(homeBanner.publishedAt)}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={closeBannerModal}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 hover:bg-white/30 text-white text-lg font-bold transition"
+                aria-label="ปิด"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Image */}
+            <img
+              src={homeBanner.imageUrl}
+              alt="ประกาศจากมหาวิทยาลัย"
+              className="w-full h-auto block"
+            />
+
+            {/* Footer */}
+            <div className="bg-white px-5 py-3 flex items-center justify-between gap-3 border-t border-slate-100">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold text-slate-600">
+                  {homeBanner.publisherName || "องค์การนิสิต มหาวิทยาลัยเกษตรศาสตร์"}
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  {homeBanner.expiresAt
+                    ? `แสดงถึง ${formatThaiDateOnly(homeBanner.expiresAt)}`
+                    : "ปิดครั้งนี้แล้วจะไม่แสดงซ้ำจนกว่าจะมีประกาศใหม่"}
+                </p>
+              </div>
+              <button
+                onClick={closeBannerModal}
+                className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-5 py-2 transition shadow-sm"
+              >
+                รับทราบ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col items-center justify-center min-h-[85vh] py-8 md:py-10 animate-fade-in-up">
         <main className="w-full max-w-5xl px-4">
 
@@ -201,6 +341,24 @@ export default function Home() {
             <QuickCard title="ผลคะแนน Real-time" desc="ติดตามสถานการณ์ล่าสุด" link="/dashboard" color="bg-purple-50 text-purple-600" />
             <QuickCard title="วิธีการลงคะแนน" desc="ขั้นตอนการใช้สิทธิ์" link="/voteguide" color="bg-orange-50 text-orange-600" />
           </div>
+
+          {homeBanner?.imageUrl && (
+            <div
+              className="max-w-4xl mx-auto mt-6 mb-2 rounded-2xl overflow-hidden shadow border border-slate-200 cursor-pointer hover:shadow-md transition"
+              onClick={() => setShowBannerModal(true)}
+              title="คลิกเพื่อดูประกาศ"
+            >
+              <div className="bg-emerald-50 border-b border-emerald-100 px-5 py-2 flex items-center gap-2">
+                <span className="text-emerald-700 text-sm font-bold">📢 ประกาศจากมหาวิทยาลัย</span>
+                <span className="text-slate-400 text-xs ml-auto">คลิกเพื่อดูขนาดเต็ม</span>
+              </div>
+              <img
+                src={homeBanner.imageUrl}
+                alt="ประกาศจากมหาวิทยาลัย"
+                className="w-full h-auto object-contain max-h-48"
+              />
+            </div>
+          )}
 
         </main>
       </div>

@@ -33,7 +33,7 @@ app.use(cors({
     credentials: true
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: "20mb" }));
 
 // =======================
 // MongoDB Connection
@@ -1266,6 +1266,94 @@ app.put("/community/comments/:id/report", verifyUser, async (req, res) => {
     );
     await writeAuditLog({ actorEmail: req.user.email, actorRole: req.user.role, action: "community_report_comment", targetType: "community_comment", targetId: req.params.id, details: { reason } });
     res.json({ message: "รายงานเรียบร้อยแล้ว" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// =======================
+// 🖼️ Home Banner (Poster Studio → Home Page)
+// =======================
+
+// POST /admin/home-banner — บันทึก URL รูปแบนเนอร์หน้าหลัก (admin only)
+app.post("/admin/home-banner", verifyAdmin, async (req, res) => {
+  try {
+    const { imageUrl, label, publisherName, expiresAt } = req.body;
+    if (!imageUrl || typeof imageUrl !== "string" || !imageUrl.startsWith("data:image/")) {
+      return res.status(400).json({ message: "imageUrl ไม่ถูกต้อง" });
+    }
+
+    let parsedExpiresAt = null;
+    if (expiresAt) {
+      parsedExpiresAt = new Date(expiresAt);
+      if (Number.isNaN(parsedExpiresAt.getTime())) {
+        return res.status(400).json({ message: "expiresAt ไม่ถูกต้อง" });
+      }
+    }
+
+    await db.collection("settings").updateOne(
+      { _id: "homeBanner" },
+      {
+        $set: {
+          imageUrl,
+          label: label || "",
+          publisherName: publisherName || "องค์การนิสิต มหาวิทยาลัยเกษตรศาสตร์",
+          expiresAt: parsedExpiresAt,
+          publishedAt: new Date(),
+          publishedBy: req.user.email,
+        },
+      },
+      { upsert: true }
+    );
+    await writeAuditLog({
+      actorEmail: req.user.email,
+      actorRole: req.user.role,
+      action: "admin.publish_home_banner",
+      targetType: "settings",
+      targetId: "homeBanner",
+      details: { label, publisherName, expiresAt: parsedExpiresAt },
+    });
+    res.json({ message: "เผยแพร่แบนเนอร์หน้าหลักสำเร็จ" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /admin/home-banner — ลบแบนเนอร์หน้าหลัก (admin only)
+app.delete("/admin/home-banner", verifyAdmin, async (req, res) => {
+  try {
+    await db.collection("settings").deleteOne({ _id: "homeBanner" });
+    await writeAuditLog({
+      actorEmail: req.user.email,
+      actorRole: req.user.role,
+      action: "admin.remove_home_banner",
+      targetType: "settings",
+      targetId: "homeBanner",
+      details: {},
+    });
+    res.json({ message: "ลบแบนเนอร์หน้าหลักสำเร็จ" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /home-banner — ดึงแบนเนอร์หน้าหลัก (public)
+app.get("/home-banner", async (req, res) => {
+  try {
+    const doc = await db.collection("settings").findOne({ _id: "homeBanner" });
+    if (!doc) return res.json({ imageUrl: null });
+
+    if (doc.expiresAt && new Date(doc.expiresAt).getTime() <= Date.now()) {
+      return res.json({ imageUrl: null, expired: true });
+    }
+
+    res.json({
+      imageUrl: doc.imageUrl,
+      label: doc.label || "",
+      publisherName: doc.publisherName || "",
+      publishedAt: doc.publishedAt,
+      expiresAt: doc.expiresAt || null,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
