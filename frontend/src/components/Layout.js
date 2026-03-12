@@ -145,6 +145,13 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
               text="ตรวจสอบผู้สมัคร" 
               active={location.pathname === "/candidate-management"} 
             />
+            <MenuItem 
+      open={open} 
+      to="/admin-dashboard"
+      icon="🗳️"
+      text="ตั้งค่าระบบเลือกตั้ง"
+      active={location.pathname === "/admin-dashboard"}
+    />
             </>
             
           )}

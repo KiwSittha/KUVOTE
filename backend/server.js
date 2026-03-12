@@ -414,25 +414,144 @@ const verifyAdmin = async (req, res, next) => {
 // 📌 5.2 แอดมินตั้งค่าระบบ (รับค่า endTime มาบันทึก)
 app.post("/admin/toggle-election", verifyAdmin, async (req, res) => {
   try {
-    const { isOpen, startTime, endTime } = req.body; // ✅ รับ startTime มาด้วย
+    const { isOpen, startTime, endTime } = req.body;
 
+    // 1️⃣ บันทึกสถานะระบบ
     await db.collection("settings").updateOne(
       { _id: "electionState" },
-      { $set: { 
-          isOpen: Boolean(isOpen), 
-          startTime: startTime || null, // ✅ บันทึกเวลาเปิด
-          endTime: endTime || null 
-        } 
+      {
+        $set: {
+          isOpen: Boolean(isOpen),
+          startTime: startTime || null,
+          endTime: endTime || null
+        }
       },
       { upsert: true }
     );
 
-    res.json({ message: "อัปเดตการตั้งค่าสำเร็จ", isOpen, startTime, endTime });
+    // 2️⃣ ดึง email ผู้ใช้ทั้งหมด
+    const users = await db.collection("users")
+      .find({ isVerified: true }) // ส่งเฉพาะคนที่ยืนยัน email แล้ว
+      .toArray();
+
+    const emails = users.map(u => u.email);
+    const formatDate = (date) => {
+  if (!date) return "-";
+  return new Date(date).toLocaleString("th-TH", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+};
+const formatThaiDate = (date) => {
+  if (!date) return "-";
+  const d = new Date(date);
+
+  return d.toLocaleString("th-TH", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }) + " น.";
+};
+    // 3️⃣ สร้างเนื้อหา email
+    const emailHtml = `
+<div style="background:#f0fdf4;padding:40px 15px;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <div style="max-width:600px;margin:auto;background:#ffffff;border-radius:16px;
+              overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.08);
+              border:1px solid #e2e8f0;">
+
+    <!-- HEADER -->
+    <div style="background:#047857;padding:35px;text-align:center;">
+      <h1 style="color:#fff;margin:0;font-size:32px;font-weight:900;">
+        KU<span style="color:#6ee7b7;">Vote</span>
+      </h1>
+      <p style="color:#a7f3d0;margin-top:6px;font-size:14px;">
+        ระบบเลือกตั้งประธานนิสิต
+      </p>
+    </div>
+
+    <!-- BODY -->
+    <div style="padding:40px 30px;text-align:center;color:#334155;">
+
+      <div style="font-size:50px;margin-bottom:10px;">🗳️</div>
+
+      <h2 style="margin-top:10px;color:#0f172a;">
+        ${isOpen ? "การเลือกตั้งเปิดแล้ว!" : "การเลือกตั้งถูกปิดแล้ว"}
+      </h2>
+
+      <p style="font-size:16px;color:#475569;margin-top:10px;">
+        ${isOpen 
+          ? "ขณะนี้ระบบเปิดให้ลงคะแนนเสียงแล้ว คุณสามารถเข้าไปเลือกผู้สมัครที่คุณสนับสนุนได้ทันที"
+          : "ระบบเลือกตั้งถูกปิดเรียบร้อยแล้ว ขอบคุณทุกท่านที่ร่วมใช้สิทธิ์"
+        }
+      </p>
+
+      <!-- TIME BOX -->
+      <div style="background:#f1f5f9;border:1px solid #e2e8f0;
+                  border-radius:10px;padding:18px;margin-top:25px;
+                  font-size:15px;color:#334155;line-height:1.8;">
+        ⏰ <b>เวลาเปิดระบบ:</b> ${formatThaiDate(startTime)}<br>
+        ⛔ <b>เวลาปิดระบบ:</b> ${formatThaiDate(endTime)}
+      </div>
+
+      ${
+        isOpen
+        ? `
+        <!-- BUTTON -->
+        <a href="${process.env.FRONTEND_URL || "http://localhost:3000"}"
+           style="display:inline-block;margin-top:30px;
+                  background:#10b981;color:white;
+                  padding:16px 40px;border-radius:10px;
+                  text-decoration:none;font-weight:bold;
+                  font-size:16px;box-shadow:0 4px 10px rgba(16,185,129,0.3);">
+          ไปลงคะแนนเสียงตอนนี้
+        </a>
+        `
+        : ""
+      }
+
+      <p style="margin-top:30px;font-size:13px;color:#64748b;">
+        เสียงของคุณมีความสำคัญต่ออนาคตของนิสิตทุกคน
+      </p>
+
+    </div>
+
+    <!-- FOOTER -->
+    <div style="background:#f8fafc;padding:20px;text-align:center;
+                border-top:1px solid #e2e8f0;">
+      <p style="font-size:12px;color:#94a3b8;margin:0;">
+        © 2026 KU Vote System – Kasetsart University<br>
+        อีเมลนี้ถูกส่งโดยระบบอัตโนมัติ
+      </p>
+    </div>
+
+  </div>
+</div>
+`;
+    // 4️⃣ ส่ง email
+    await transporter.sendMail({
+      from: `"KUVote System" <${process.env.EMAIL_USER}>`,
+      bcc: emails, // ใช้ BCC เพื่อไม่ให้เห็น email กัน
+      subject: "📢 การตั้งค่าระบบเลือกตั้ง KU",
+      html: emailHtml
+    });
+
+    res.json({
+      message: "อัปเดตระบบและส่ง Email แจ้งผู้ใช้เรียบร้อยแล้ว",
+      isOpen,
+      startTime,
+      endTime
+    });
+
   } catch (err) {
+    console.error("❌ Toggle Election Error:", err);
     res.status(500).json({ error: err.message });
   }
 });
-
 // =======================
 // 🔗 6. BLOCKCHAIN VOTING SYSTEM
 // =======================
