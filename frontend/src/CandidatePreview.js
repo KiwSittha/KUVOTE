@@ -1,10 +1,17 @@
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Layout from "./components/Layout";
-import CandidateA4Preview from "./components/CandidateA4Preview";
+
 import { createCandidate } from "./services/candidateService";
 // ✅ ลบการนำเข้า Firebase ออก แล้วใช้ Cloudinary แทน
-import imageCompression from 'browser-image-compression'; 
+import imageCompression from 'browser-image-compression';
+
+const POSITION_LABELS = {
+  OBK: "นายกองค์การบริหารนิสิต",
+  REPRESENTATIVE: "สมาชิกผู้แทนนิสิต",
+  CLUB: "ประธานสโมสรนิสิต"
+};
+
 
 function CandidatePreview() {
   const location = useLocation();
@@ -14,7 +21,7 @@ function CandidatePreview() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showDuplicate, setShowDuplicate] = useState(false); // แก้ไขส่วนที่ตกหล่นไป
   const [loading, setLoading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0); 
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   if (!form) return <Layout><div className="text-center py-20">ไม่พบข้อมูล</div></Layout>;
 
@@ -26,10 +33,10 @@ function CandidatePreview() {
       maxWidthOrHeight: 1024,
       useWebWorker: true
     };
-    
+
     console.log("📦 กำลังบีบอัดรูปภาพ...");
     const compressedFile = await imageCompression(file, options);
-    
+
     // 2. เตรียมข้อมูลสำหรับ Cloudinary
     const formData = new FormData();
     formData.append("file", compressedFile);
@@ -62,7 +69,8 @@ function CandidatePreview() {
       xhr.send(formData);
     });
   };
-
+  
+  
   const handleSubmit = async () => {
     try {
       setLoading(true);
@@ -81,7 +89,7 @@ function CandidatePreview() {
       });
       console.log("🚀 2. Data sending to Backend:", res);
       // ตรวจสอบกรณีสมัครซ้ำจาก Backend
-      if (res?.message === "duplicate") {
+      if (res?.message === "duplicate_email") {
         setShowDuplicate(true);
         setLoading(false);
         return;
@@ -98,11 +106,66 @@ function CandidatePreview() {
 
   return (
     <Layout>
-      <CandidateA4Preview form={form} policies={policies} profilePreview={profilePreview} />
+      <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow p-8 mb-6">
+
+        <h1 className="text-2xl font-bold mb-6">รายละเอียดผู้สมัคร</h1>
+
+        <div className="flex gap-8">
+
+          <img
+            src={profilePreview}
+            alt="profile"
+            className="w-36 h-36 object-cover rounded-xl border"
+          />
+
+          <div className="space-y-2 text-slate-700">
+            <p><b>ชื่อ:</b> {form.name}</p>
+            <p><b>คณะ:</b> {form.faculty}</p>
+            <p><b>สาขา:</b> {form.major}</p>
+            <p><b>ชั้นปี:</b> {form.year}</p>
+            <p><b>ตำแหน่ง:</b> {POSITION_LABELS[form.position]}</p>
+            <p><b>เบอร์:</b> {form.phone}</p>
+            <p><b>Email:</b> {form.email}</p>
+          </div>
+
+        </div>
+
+      </div>
+  
+    <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow p-8">
+
+  <h2 className="text-xl font-bold mb-4">นโยบาย</h2>
+
+  <div className="space-y-4">
+    {policies.map((policy, index) => (
+      <div
+        key={index}
+        className="border border-slate-200 rounded-xl p-4 bg-slate-50"
+      >
+        {index + 1}. {policy}
+      </div>
+    ))}
+  </div>
+
+</div>
 
       <div className="max-w-[794px] mx-auto flex flex-col gap-4 mt-6 pb-12">
         <div className="flex gap-4">
-          <button onClick={() => navigate(-1)} className="flex-1 bg-slate-200 py-3.5 rounded-xl font-bold">
+          <button
+            onClick={() =>
+              navigate("/add-candidates", {
+                state: {
+                  form,
+                  policies,
+                  weights,
+                  profilePreview,
+                  step: 2,
+                  position: form.position
+                }
+              })
+            }
+            className="flex-1 bg-slate-200 py-3.5 rounded-xl font-bold"
+          >
             กลับไปแก้ไข
           </button>
 
@@ -114,11 +177,11 @@ function CandidatePreview() {
             {loading ? `กำลังบันทึก... ${uploadProgress}%` : "ยืนยันส่งใบสมัคร"}
           </button>
         </div>
-        
+
         {loading && (
           <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2 overflow-hidden">
-            <div 
-              className="bg-emerald-600 h-full transition-all duration-300" 
+            <div
+              className="bg-emerald-600 h-full transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
             ></div>
           </div>
@@ -137,7 +200,7 @@ function CandidatePreview() {
             </h1>
 
             <p className="mt-4 text-slate-600 leading-relaxed">
-              ระบบได้รับใบสมัครของท่านเรียบร้อยแล้ว<br/>
+              ระบบได้รับใบสมัครของท่านเรียบร้อยแล้ว<br />
               กรุณารอการตรวจสอบและอนุมัติจากคณะกรรมการ
             </p>
 

@@ -3,6 +3,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import { getCandidateById, updateCandidateStatus } from "./services/candidateService";
 
+const POSITION_LABELS = {
+  OBK: "นายกองค์การบริหารนิสิต",
+  REPRESENTATIVE: "สมาชิกผู้แทนนิสิต",
+  CLUB: "ประธานสโมสรนิสิต"
+};
+
 function CandidateDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -10,7 +16,8 @@ function CandidateDetail() {
   const [candidate, setCandidate] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-const [selectedReasons, setSelectedReasons] = useState([]);
+  const [selectedReasons, setSelectedReasons] = useState([]);
+  const [loadingApprove, setLoadingApprove] = useState(false);
   // ================= FETCH DATA =================
   useEffect(() => {
     const fetchCandidate = async () => {
@@ -26,9 +33,9 @@ const [selectedReasons, setSelectedReasons] = useState([]);
   }, [id]);
 
   // ================= UPDATE STATUS =================
-  const handleUpdateStatus = async (status) => {
-    try {
-      await updateCandidateStatus(id, status, rejectReason);
+  const handleUpdateStatus = async (status, reason = "") => {
+  try {
+    await updateCandidateStatus(id, status, reason);
       navigate("/candidate-management");
     } catch (err) {
       console.error(err);
@@ -36,13 +43,43 @@ const [selectedReasons, setSelectedReasons] = useState([]);
     }
   };
   const handleToggleReason = (reason) => {
-  setSelectedReasons(prev =>
-    prev.includes(reason)
-      ? prev.filter(r => r !== reason)
-      : [...prev, reason]
-  );
-};
+    setSelectedReasons(prev =>
+      prev.includes(reason)
+        ? prev.filter(r => r !== reason)
+        : [...prev, reason]
+    );
+  };
+  const handleApprove = async () => {
+    try {
+      setLoadingApprove(true); // เริ่ม loading
 
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(`http://localhost:8000/candidates/${candidate._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          status: "approved"
+        })
+      });
+
+      // const data = await res.json();
+
+      if (res.ok) {
+        alert("อนุมัติสำเร็จ");
+        navigate("/candidate-management");
+      }
+
+    } catch (err) {
+      console.error(err);
+      alert("เกิดข้อผิดพลาด");
+    } finally {
+      setLoadingApprove(false); // หยุด loading
+    }
+  };
   // ================= LOADING =================
   if (!candidate) {
     return (
@@ -66,21 +103,22 @@ const [selectedReasons, setSelectedReasons] = useState([]);
             </h1>
 
             <span
-              className={`px-4 py-1 rounded-full text-sm font-semibold
-                ${
-                  candidate.status === "approved"
-                    ? "bg-green-100 text-green-700"
-                    : candidate.status === "pending"
-                    ? "bg-yellow-100 text-yellow-700"
-                    : "bg-red-100 text-red-700"
-                }`}
-            >
-              {candidate.status}
-            </span>
+  className={`px-4 py-1 rounded-full text-sm font-semibold
+    ${candidate.status === "approved"
+      ? "bg-green-100 text-green-700"
+      : candidate.status === "pending"
+      ? "bg-yellow-100 text-yellow-700"
+      : candidate.status === "needs_revision"
+      ? "bg-orange-100 text-orange-700"
+      : "bg-red-100 text-red-700"
+    }`}
+>
+  {candidate.status === "needs_revision" ? "แก้ไข" : candidate.status}
+</span>
           </div>
 
           {/* REJECT REASON */}
-          {candidate.status === "rejected" && candidate.rejectReason && (
+          {candidate.status === "needs_revision" && candidate.rejectReason && (
             <div className="bg-red-50 border border-red-200 p-4 rounded-xl">
               <p className="font-semibold text-red-700">
                 เหตุผลที่ต้องแก้ไข:
@@ -112,9 +150,10 @@ const [selectedReasons, setSelectedReasons] = useState([]);
               <p><b>คณะ:</b> {candidate.faculty}</p>
               <p><b>สาขา:</b> {candidate.major}</p>
               <p><b>ชั้นปี:</b> {candidate.year}</p>
-              <p><b>ตำแหน่ง:</b> {candidate.position}</p>
-              <p><b>พรรค:</b> {candidate.partyName}</p>
-              <p><b>สโลแกน:</b> {candidate.slogan}</p>
+              <p>
+                <b>ตำแหน่ง:</b> {POSITION_LABELS[candidate.position] || candidate.position}
+              </p>
+
               <p><b>เบอร์:</b> {candidate.phone}</p>
               <p><b>Email:</b> {candidate.email}</p>
             </div>
@@ -143,18 +182,20 @@ const [selectedReasons, setSelectedReasons] = useState([]);
           {candidate.status === "pending" && (
             <div className="flex gap-4 mt-6">
               <button
-                onClick={() => handleUpdateStatus("approved")}
-                className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700"
+                onClick={handleApprove}
+                disabled={loadingApprove}
+                className={`flex-1 text-white py-3 rounded-xl ${loadingApprove ? "bg-green-400" : "bg-green-600 hover:bg-green-700"
+                  }`}
               >
-                Approve
+                {loadingApprove ? "กำลังอนุมัติ..." : "Approve"}
               </button>
 
               <button
-                onClick={() => setShowRejectModal(true)}
-                className="flex-1 bg-red-600 text-white py-3 rounded-xl hover:bg-red-700"
-              >
-                Reject
-              </button>
+  onClick={() => setShowRejectModal(true)}
+  className="flex-1 bg-yellow-500 text-white py-3 rounded-xl hover:bg-yellow-600"
+>
+  ขอให้แก้ไข
+</button>
             </div>
           )}
 
@@ -163,76 +204,75 @@ const [selectedReasons, setSelectedReasons] = useState([]);
 
       {/* REJECT MODAL */}
       {/* REJECT MODAL */}
-{showRejectModal && (
-  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-    <div className="bg-white p-8 rounded-2xl w-[500px] space-y-4 shadow-2xl">
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white p-8 rounded-2xl w-[500px] space-y-4 shadow-2xl">
 
-      <h2 className="text-xl font-bold text-red-600">
-        เลือกเหตุผลที่ต้องแก้ไข
-      </h2>
+            <h2 className="text-xl font-bold text-red-600">
+              เลือกเหตุผลที่ต้องแก้ไข
+            </h2>
 
-      {/* CHECKBOX OPTIONS */}
-      <div className="space-y-2">
-        {[
-          "ข้อมูลส่วนตัวไม่ครบถ้วน",
-          "รูปภาพไม่ชัดเจน",
-          "นโยบายไม่เหมาะสม",
-          "เอกสารไม่ถูกต้อง",
-          "ข้อมูลติดต่อไม่ถูกต้อง"
-        ].map((reason, index) => (
-          <label key={index} className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={selectedReasons.includes(reason)}
-              onChange={() => handleToggleReason(reason)}
+            {/* CHECKBOX OPTIONS */}
+            <div className="space-y-2">
+              {[
+                "ข้อมูลส่วนตัวไม่ครบถ้วน",
+                "รูปภาพไม่ชัดเจน",
+                "นโยบายไม่เหมาะสม",
+                "เอกสารไม่ถูกต้อง",
+                "ข้อมูลติดต่อไม่ถูกต้อง"
+              ].map((reason, index) => (
+                <label key={index} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedReasons.includes(reason)}
+                    onChange={() => handleToggleReason(reason)}
+                  />
+                  <span>{reason}</span>
+                </label>
+              ))}
+            </div>
+
+            {/* ADDITIONAL DETAIL */}
+            <textarea
+              className="w-full border rounded-xl p-3 mt-3"
+              rows="3"
+              placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
             />
-            <span>{reason}</span>
-          </label>
-        ))}
-      </div>
 
-      {/* ADDITIONAL DETAIL */}
-      <textarea
-        className="w-full border rounded-xl p-3 mt-3"
-        rows="3"
-        placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)"
-        value={rejectReason}
-        onChange={(e) => setRejectReason(e.target.value)}
-      />
+            <div className="flex gap-4 pt-2">
+              <button
+                onClick={() => setShowRejectModal(false)}
+                className="flex-1 bg-gray-200 py-2 rounded-xl"
+              >
+                ยกเลิก
+              </button>
 
-      <div className="flex gap-4 pt-2">
-        <button
-          onClick={() => setShowRejectModal(false)}
-          className="flex-1 bg-gray-200 py-2 rounded-xl"
-        >
-          ยกเลิก
-        </button>
+              <button
+  onClick={() => {
+    if (selectedReasons.length === 0) {
+      alert("กรุณาเลือกอย่างน้อย 1 เหตุผล");
+      return;
+    }
 
-        <button
-          onClick={() => {
-            if (selectedReasons.length === 0) {
-              alert("กรุณาเลือกอย่างน้อย 1 เหตุผล");
-              return;
-            }
+    const finalReason = [
+      ...selectedReasons,
+      rejectReason && `เพิ่มเติม: ${rejectReason}`
+    ]
+      .filter(Boolean)
+      .join(", ");
 
-            const finalReason = [
-              ...selectedReasons,
-              rejectReason && `เพิ่มเติม: ${rejectReason}`
-            ]
-              .filter(Boolean)
-              .join(", ");
-
-            setRejectReason(finalReason);
-            handleUpdateStatus("rejected");
-          }}
-          className="flex-1 bg-red-600 text-white py-2 rounded-xl"
-        >
-          ยืนยัน Reject
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+    handleUpdateStatus("needs_revision", finalReason);
+  }}
+  className="flex-1 bg-yellow-500 text-white py-2 rounded-xl"
+>
+  ส่งกลับให้แก้ไข
+</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from "react";
 import Layout from "./components/Layout";
-import { getCandidates } from "./services/candidateService";
+
 import { useNavigate } from "react-router-dom";
+import { getAdminCandidates } from "./services/candidateService";
+
+const POSITION_LABELS = {
+  OBK: "นายกองค์การบริหารนิสิต",
+  REPRESENTATIVE: "สมาชิกผู้แทนนิสิต",
+  CLUB: "ประธานสโมสรนิสิต"
+};
+
 
 function CandidateManagement() {
   const [filter, setFilter] = useState("all");
@@ -15,7 +23,7 @@ function CandidateManagement() {
 
   const fetchData = async () => {
     try {
-      const data = await getCandidates();
+      const data = await getAdminCandidates();
       
       // ✅ เช็คก่อนว่าเป็น Array ไหม ถ้าใช่ค่อย set ถ้าไม่ใช่ให้ใส่ [] ไว้กันพัง
       if (Array.isArray(data)) {
@@ -86,15 +94,15 @@ function CandidateManagement() {
                 Approved ({countStatus("approved")})
               </button>
 
-              <button
-                onClick={() => setFilter("needs_revision")}
-                className={`px-4 py-2 rounded font-medium 
-                  ${filter === "needs_revision"
-                    ? "bg-red-600 text-white"
-                    : "bg-red-200"}`}
-              >
-                Needs Revision ({countStatus("needs_revision")})
-              </button>
+            <button
+  onClick={() => setFilter("needs_revision")}
+  className={`px-4 py-2 rounded font-medium 
+    ${filter === "needs_revision"
+      ? "bg-gray-600 text-white"
+      : "bg-gray-200 text-gray-700"}`}
+>
+  Revise ({countStatus("needs_revision")})
+</button>
             </div>
           </div>
 
@@ -119,21 +127,27 @@ function CandidateManagement() {
                     className="border-t hover:bg-slate-100 cursor-pointer transition"
                   >
                     <td className="p-4">{c.name}</td>
-                    <td className="p-4">{c.position}</td>
+                    <td className="p-4">
+  {POSITION_LABELS[c.position] || c.position}
+</td>
 
                     <td className="p-4">
                       <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium
-                          ${c.status === "pending" &&
-                            "bg-yellow-200 text-yellow-800"}
-                          ${c.status === "approved" &&
-                            "bg-green-200 text-green-800"}
-                          ${c.status === "needs_revision" &&
-                            "bg-red-200 text-red-800"}
-                        `}
-                      >
-                        {c.status}
-                      </span>
+  className={`px-3 py-1 rounded-full text-sm font-medium
+    ${c.status === "pending" &&
+      "bg-yellow-200 text-yellow-800"}
+    ${c.status === "approved" &&
+      "bg-green-200 text-green-800"}
+    ${c.status === "needs_revision" &&
+      "bg-gray-200 text-gray-700"}
+  `}
+>
+  {c.status === "needs_revision"
+  ? "Revise"
+  : c.status === "pending"
+  ? "Pending"
+  : "Approved"}
+</span>
                     </td>
                   </tr>
                 ))}

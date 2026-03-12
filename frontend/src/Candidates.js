@@ -11,16 +11,20 @@ function Candidates() {
   // ดึงข้อมูล
   // ==========================
   useEffect(() => {
-    fetch("http://localhost:8000/candidates")
-      .then((res) => res.json())
-      .then((data) => {
-        // เรียงตามเบอร์
-        const sortedData = data.sort((a, b) => a.candidateId - b.candidateId);
-        setCandidates(sortedData);
-      })
-      .catch((err) => console.error("Error fetching candidates:", err));
-  }, []);
+  fetch("http://localhost:8000/candidates")
+    .then((res) => res.json())
+    .then((data) => {
 
+      // ⭐ filter เฉพาะผู้สมัครที่ approved
+      const approved = data.filter(c => c.status === "approved");
+
+      // เรียงตามเบอร์
+      const sortedData = approved.sort((a, b) => a.candidateId - b.candidateId);
+
+      setCandidates(sortedData);
+    })
+    .catch((err) => console.error("Error fetching candidates:", err));
+}, []);
   // ==========================
   // Logic การเลื่อน (ใช้ useCallback เพื่อให้ใช้ใน useEffect ได้)
   // ==========================
@@ -49,13 +53,14 @@ function Candidates() {
   }, [nextCandidate, prevCandidate, showPolicyModal]);
 
   // ดึงข้อมูลคนปัจจุบันมาแสดง
-  const currentCandidate = candidates[currentIndex];
+  const currentCandidate = candidates[currentIndex] || null;
 
   return (
     <Layout>
       <div className="min-h-[85vh] flex items-center justify-center p-4">
         
-        {candidates.length > 0 ? (
+        {currentCandidate ? (
+          
           <div className="relative w-full max-w-5xl group">
             
             {/* ================= ปุ่มเลื่อนซ้าย ================= */}

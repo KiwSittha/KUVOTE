@@ -54,12 +54,22 @@ export default function Vote() {
     try {
       const response = await fetch("http://localhost:8000/candidates");
       if (!response.ok) throw new Error("ดึงข้อมูลไม่สำเร็จ");
-      const data = await response.json();
+      
 
       // เรียงลำดับตามหมายเลข (candidateId) จากน้อยไปมาก (1 -> 2 -> 3)
-      const sortedData = data.sort((a, b) => a.candidateId - b.candidateId);
+      const data = await response.json();
 
-      setCandidates(sortedData);
+// ⭐ filter เฉพาะ approved
+const approvedCandidates = data.filter(
+  (c) => c.status === "approved"
+);
+
+// เรียงตามเบอร์
+const sortedData = approvedCandidates.sort(
+  (a, b) => a.candidateId - b.candidateId
+);
+
+setCandidates(sortedData);
     } catch (error) {
       console.error("Error:", error);
       Swal.fire("ข้อผิดพลาด", "ไม่สามารถดึงรายชื่อผู้สมัครได้", "error");

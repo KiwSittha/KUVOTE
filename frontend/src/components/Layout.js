@@ -117,11 +117,19 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
           
           <MenuItem open={open} to={user ? "/vote" : "/login"} icon="🗳️" text="ลงคะแนนเสียง" active={location.pathname === "/vote"} />
           <MenuItem open={open} to={user ? "/dashboard" : "/login"} icon="📊" text="ผลการเลือกตั้ง" active={location.pathname === "/dashboard"} />
-          
+          {/* <MenuItem open={open} to={user ? "/select-position" : "/login"} icon="➕" text="สมัคร" active={location.pathname === "/select-position"} /> */}
           {/* เมนูสำหรับ Admin */}
           {isAdmin && (
+  <MenuItem 
+    open={open} 
+    to="/select-position"
+    icon="➕"
+    text="เพิ่มผู้สมัคร"
+    active={location.pathname === "/select-position"}
+  />
+)}
+          {isAdmin && (
             <>
-            <MenuItem open={open} to={user ? "/select-position" : "/login"} icon="➕" text="สมัคร" active={location.pathname === "/select-position"} />
             <MenuItem 
               open={open} 
               to="/admin-chat" 
@@ -136,13 +144,6 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
               icon="🛠️" 
               text="ตรวจสอบผู้สมัคร" 
               active={location.pathname === "/candidate-management"} 
-            />
-            <MenuItem 
-              open={open} 
-              to="/admin-dashboard" 
-              icon="⚙️" 
-              text="จัดการเลือกตั้ง" 
-              active={location.pathname === "/admin-dashboard"} 
             />
             </>
             

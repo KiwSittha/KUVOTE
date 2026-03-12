@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Layout from "./components/Layout";
 import StepBar from "./components/StepBar";
 import { useLocation, useNavigate } from "react-router-dom";
+import { checkCandidateEmail } from "./services/candidateService";
 
 // ✅ ข้อมูลนโยบายหลักที่บังคับให้จัดอันดับ (มี 4 ข้อเหมือนเดิม)
 const policiesData = [
@@ -14,10 +15,75 @@ const policiesData = [
 const POSITION_LABELS = {
   OBK: "นายกองค์การบริหารนิสิต (อบก.)",
   REPRESENTATIVE: "สมาชิกสภานิสิต",
-  AddClubPresident: "นายกสโมสรนิสิต",
-  CLUB: "นายกสโมสรนิสิต"
+  CLUB: "ประธานสโมสรนิสิต"
 };
+const FACULTY_MAJORS = {
+  "วิศวกรรมศาสตร์": [
+    "วิศวกรรมไฟฟ้า",
+    "วิศวกรรมโยธา",
+    "วิศวกรรมอุตสาหการ",
+    "วิศวกรรมเครื่องกล",
+    "วิศวกรรมคอมพิวเตอร์"
+  ],
+  "วิทยาศาสตร์": [
+    "ทรัพยากรและสิ่งแวดล้อม",
+    "วิทยาศาสตร์พื้นฐานและพลศึกษา",
+    "วิทยาการคอมพิวเตอร์และสารสนเทศ"
+  ],
+  "วิทยาการจัดการ": [
+    "การจัดการ",
+    "ธุรกิจระหว่างประเทศ",
+    "การจัดการอุตสาหกรรมการบริการ",
+    "การบัญชี",
+    "การตลาดดิจิทัลและการสร้างตรา",
+    "การจัดการโลจิสติกส์",
+    "การเงินและการลงทุน"
 
+  ],
+  "เศรษฐศาสตร์": [
+    "เศรษฐศาสตร์",
+    "เศรษฐศาสตร์ประยุกต์"
+  ],
+  "พาณิชยนาวีนานาชาติ": [
+    "วิทยาการเดินเรือและโลจิสติกส์ทางทะเล",
+    "วิศวกรรมทางทะเล"
+  ]
+};
+const dropdownClass = `
+w-full
+border border-slate-300
+rounded-xl
+px-4 py-3 pr-10
+bg-white
+text-slate-700
+shadow-sm
+focus:ring-2 focus:ring-emerald-500
+focus:border-emerald-500
+outline-none
+transition
+appearance-none
+`;
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// ตรวจว่าข้อความดูเป็นคำจริง ไม่ใช่พิมพ์มั่ว
+const isValidText = (text, min = 5) => {
+  const trimmed = text.trim();
+
+  if (trimmed.length < min) return false;
+
+  // ห้ามตัวอักษรซ้ำ เช่น aaaaa หรือ กกกกก
+  if (/^(.)\1+$/.test(trimmed)) return false;
+
+  // ห้ามตัวเลขล้วน
+  if (/^\d+$/.test(trimmed)) return false;
+
+  // ต้องมีตัวอักษรไทยหรืออังกฤษ
+  if (!/[a-zA-Zก-๙]/.test(trimmed)) return false;
+
+  // ห้ามคำที่ซ้ำ pattern เช่น testtest
+  if (/(\w{2,})\1+/.test(trimmed)) return false;
+
+  return true;
+};
 function AddCandidates() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -53,24 +119,68 @@ function AddCandidates() {
   const [policies, setPolicies] = useState([""]);
 
   useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem("user"));
-    if (storedUser) {
-      setForm(prev => ({
-        ...prev,
-        name: storedUser.name || "",
-        faculty: storedUser.faculty || "",
-        major: storedUser.major || "",
-        year: storedUser.year || "",
-        email: storedUser.email || ""
-      }));
+    if (location.state?.form) {
+      setForm(location.state.form);
     }
-  }, []);
+
+    if (location.state?.policies) {
+      setPolicies(location.state.policies);
+    }
+
+    if (location.state?.weights) {
+      const w = location.state.weights;
+
+      setCorePolicyRanks({
+        study: w.study !== undefined ? Math.round(w.study * 4 + 1) : null,
+        skill_workshop: w.skill_workshop !== undefined ? Math.round(w.skill_workshop * 4 + 1) : null,
+        equipment_borrow: w.equipment_borrow !== undefined ? Math.round(w.equipment_borrow * 4 + 1) : null,
+        swap_market: w.swap_market !== undefined ? Math.round(w.swap_market * 4 + 1) : null
+      });
+    }
+
+    if (location.state?.profilePreview) {
+      setProfilePreview(location.state.profilePreview);
+    }
+
+  }, [location.state]);
+
+useEffect(() => {
+  if (location.state?.form) {
+    setForm(location.state.form);
+  }
+
+  if (location.state?.policies) {
+    setPolicies(location.state.policies);
+  }
+
+  if (location.state?.weights) {
+    const w = location.state.weights;
+
+    setCorePolicyRanks({
+      study: w.study !== undefined ? Math.round(w.study * 4 + 1) : null,
+      skill_workshop: w.skill_workshop !== undefined ? Math.round(w.skill_workshop * 4 + 1) : null,
+      equipment_borrow: w.equipment_borrow !== undefined ? Math.round(w.equipment_borrow * 4 + 1) : null,
+      swap_market: w.swap_market !== undefined ? Math.round(w.swap_market * 4 + 1) : null
+    });
+  }
+
+  if (location.state?.profilePreview) {
+    setProfilePreview(location.state.profilePreview);
+  }
+
+  // ⭐ เพิ่มบรรทัดนี้
+  if (location.state?.step) {
+    setStep(location.state.step);
+  }
+
+}, [location.state]);
 
   useEffect(() => {
-    if (!position) {
-      navigate("/select-position");
+    if (form.profileImage) {
+      const preview = URL.createObjectURL(form.profileImage);
+      setProfilePreview(preview);
     }
-  }, [position, navigate]);
+  }, [form.profileImage]);
 
   if (!position) return null;
 
@@ -102,6 +212,7 @@ function AddCandidates() {
       return newRanks;
     });
   };
+  
 
   const getScoreColor = (score, isSelected) => {
     const colors = {
@@ -115,29 +226,40 @@ function AddCandidates() {
   };
 
   // ✅ ดักจับ Step 1
-  const handleNextStep1 = () => {
-    const requiredFields = ["name", "faculty", "major", "year", "email", "nickname", "phone"];
-    const hasEmptyField = requiredFields.some(field => !form[field] || form[field].trim() === "");
-    
-    if (hasEmptyField) {
-      return alert("กรุณากรอกข้อมูลให้ครบทุกช่อง");
-    }
-    if (!form.profileImage) {
-      return alert("กรุณาอัปโหลดรูปโปรไฟล์");
-    }
-    if (form.phone.length < 9) {
-      return alert("กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง");
-    }
-    setStep(2);
-  };
+ const handleNextStep1 = async () => {
 
-  // ✅ ดักจับ Step 2
-  const handleNextStep2 = () => {
-    if (!form.partyName.trim() || !form.slogan.trim()) {
-      return alert("กรุณากรอกชื่อพรรคและสโลแกนให้ครบถ้วน");
+  const requiredFields = ["name", "faculty", "major", "year", "email", "phone"];
+  const hasEmptyField = requiredFields.some(
+    field => !form[field] || form[field].trim() === ""
+  );
+
+  if (hasEmptyField) {
+    return alert("กรุณากรอกข้อมูลให้ครบทุกช่อง");
+  }
+
+  if (!emailRegex.test(form.email)) {
+    return alert("รูปแบบ Email ไม่ถูกต้อง");
+  }
+
+  if (!form.profileImage) {
+    return alert("กรุณาอัปโหลดรูปโปรไฟล์");
+  }
+
+  try {
+    const result = await checkCandidateEmail(form.email.toLowerCase());
+
+    if (result.exists) {
+      alert("อีเมลนี้มีผู้สมัครใช้ไปแล้ว");
+      return;
     }
-    setStep(3);
-  };
+
+  } catch (error) {
+    alert("ไม่สามารถตรวจสอบอีเมลได้ กรุณาลองใหม่");
+    return;
+  }
+
+  setStep(2);
+};
 
   return (
     <Layout>
@@ -155,158 +277,225 @@ function AddCandidates() {
 
           <StepBar step={step} />
 
-          {/* ================= STEP 1 ================= */}
           {step === 1 && (
-            <div className="bg-white rounded-2xl shadow p-10 space-y-6 animate-fade-in-up">
-              <h2 className="text-xl font-semibold">ข้อมูลผู้สมัคร</h2>
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-10 animate-fade-in-up">
 
-              {["name", "faculty", "major", "year", "email"].map((field, i) => {
-                const isLocked = field === "faculty" || field === "email";
+              <h2 className="text-2xl font-bold text-slate-800 mb-6">
+                ข้อมูลผู้สมัคร
+              </h2>
 
-                return (
-                  <div key={i} className="space-y-1">
-                    <label className="text-sm font-medium">
-                      {field === "name" && "ชื่อ–นามสกุล"}
-                      {field === "faculty" && "คณะ"}
-                      {field === "major" && "สาขาวิชา"}
-                      {field === "year" && "ชั้นปี"}
-                      {field === "email" && "Email"}
-                      <span className="text-red-500 ml-1">*</span>
-                    </label>
+              <div className="grid md:grid-cols-2 gap-6">
 
-                    <input
-                      value={form[field]}
-                      readOnly={isLocked}
-                      onChange={(e) =>
-                        !isLocked &&
-                        setForm({ ...form, [field]: e.target.value })
-                      }
-                      className={`border p-3 rounded-xl w-full ${
-                        isLocked ? "bg-gray-100 cursor-not-allowed text-slate-500" : "focus:ring-2 focus:ring-emerald-500 outline-none"
-                      }`}
-                    />
-                  </div>
-                );
-              })}
-              
-              <div className="space-y-1">
-                <label className="text-sm font-medium">ชื่อเล่น <span className="text-red-500">*</span></label>
-                <input
-                  className="border p-3 rounded-xl w-full focus:ring-2 focus:ring-emerald-500 outline-none"
-                  value={form.nickname}
-                  onChange={(e) =>
-                    setForm({ ...form, nickname: e.target.value })
-                  }
-                />
-              </div>
+                {/* ชื่อ */}
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-sm font-semibold text-slate-600">
+                    ชื่อ–นามสกุล <span className="text-red-500">*</span>
+                  </label>
 
-              <div className="space-y-1">
-                <label className="text-sm font-medium">เบอร์โทรศัพท์ <span className="text-red-500">*</span></label>
-                <input
-                  type="tel"
-                  maxLength={10}
-                  className="border p-3 rounded-xl w-full focus:ring-2 focus:ring-emerald-500 outline-none"
-                  value={form.phone}
-                  onChange={(e) => {
-                    const onlyNumbers = e.target.value.replace(/\D/g, "");
-                    if (onlyNumbers.length <= 10) {
-                      setForm({ ...form, phone: onlyNumbers });
+                  <input
+  autoComplete="off"
+  value={form.name}
+  onChange={(e) => setForm({ ...form, name: e.target.value })}
+  className="w-full border border-slate-300 rounded-xl p-3"
+/>
+                </div>
+                <div className="space-y-1 relative">
+
+                  <label className="text-sm font-semibold text-slate-600">
+                    คณะ <span className="text-red-500">*</span>
+                  </label>
+
+                  <select
+                    value={form.faculty}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        faculty: e.target.value,
+                        major: ""
+                      })
                     }
-                  }}
-                />
+                    className={dropdownClass}
+                  >
+
+                    <option value="" disabled hidden className="text-gray-400">
+                      เลือกคณะ
+                    </option>
+
+                    {Object.keys(FACULTY_MAJORS).map((faculty) => (
+                      <option key={faculty} value={faculty}>
+                        {faculty}
+                      </option>
+                    ))}
+
+                  </select>
+
+                  <div className="absolute right-4 top-10 pointer-events-none text-slate-400">
+                    ▼
+                  </div>
+
+                </div>
+
+
+
+                <div className="space-y-1 relative">
+
+                  <label className="text-sm font-semibold text-slate-600">
+                    สาขาวิชา <span className="text-red-500">*</span>
+                  </label>
+
+                  <select
+                    value={form.major}
+                    disabled={!form.faculty}
+                    onChange={(e) => setForm({ ...form, major: e.target.value })}
+                    className={`${dropdownClass} disabled:bg-gray-100`}
+                  >
+
+                    <option value="" disabled hidden>
+                      เลือกสาขา
+                    </option>
+
+                    {form.faculty &&
+                      FACULTY_MAJORS[form.faculty]?.map((major) => (
+                        <option key={major} value={major}>
+                          {major}
+                        </option>
+                      ))}
+
+                  </select>
+
+                  <div className="absolute right-4 top-10 pointer-events-none text-slate-400">
+                    ▼
+                  </div>
+
+                </div><div className="space-y-1 relative">
+
+                  <label className="text-sm font-semibold text-slate-600">
+                    ชั้นปี <span className="text-red-500">*</span>
+                  </label>
+
+                  <select
+                    value={form.year}
+                    onChange={(e) => setForm({ ...form, year: e.target.value })}
+                    className={dropdownClass}
+                  >
+
+                    <option value="" disabled hidden>
+                      เลือกชั้นปี
+                    </option>
+
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+
+                  </select>
+
+                  <div className="absolute right-4 top-10 pointer-events-none text-slate-400">
+                    ▼
+                  </div>
+
+                </div>
+                {/* Email */}
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-slate-600">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+
+                  <input
+  value={form.email}
+  onChange={(e) =>
+    setForm({ ...form, email: e.target.value.toLowerCase() })
+  }
+  className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-emerald-500"
+/>
+
+                </div>
+
+                {/* โทร */}
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-slate-600">
+                    เบอร์โทรศัพท์ <span className="text-red-500">*</span>
+                  </label>
+
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    value={form.phone}
+                    onChange={(e) => {
+                      const onlyNumbers = e.target.value.replace(/\D/g, "")
+                      setForm({ ...form, phone: onlyNumbers })
+                    }}
+                    className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-emerald-500"
+                  />
+
+                </div>
+
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">รูปโปรไฟล์ <span className="text-red-500">*</span></label>
+              {/* Upload รูป */}
+              <div className="mt-8 space-y-3">
+
+                <label className="text-sm font-semibold text-slate-600">
+                  รูปโปรไฟล์ <span className="text-red-500">*</span>
+                </label>
+
                 <input
                   type="file"
                   accept="image/*"
-                  className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                  className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
                   onChange={(e) => {
                     const file = e.target.files[0];
                     if (!file) return;
-                    setProfilePreview(URL.createObjectURL(file));
-                    setForm(prev => ({ ...prev, profileImage: file }));
+
+                    const preview = URL.createObjectURL(file);
+
+                    setProfilePreview(preview);
+                    setForm(prev => ({
+                      ...prev,
+                      profileImage: file,
+                    }));
                   }}
                 />
+
                 {profilePreview && (
-                  <img
-                    src={profilePreview}
-                    alt="preview"
-                    className="w-40 h-40 rounded-xl object-cover mt-2 shadow-sm border border-slate-200"
-                  />
+                  <div className="flex justify-center mt-4">
+                    <img
+                      src={profilePreview}
+                      alt="รูปโปรไฟล์ผู้สมัคร"
+                      className="w-44 h-44 object-cover rounded-2xl border shadow"
+                    />
+                  </div>
                 )}
+
               </div>
 
               <button
-                onClick={handleNextStep1} // ✅ เรียกฟังก์ชันตรวจจับ
-                className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition shadow-lg shadow-emerald-200"
+                onClick={handleNextStep1}
+                className="mt-8 w-full bg-gradient-to-r from-emerald-600 to-green-500 text-white py-3 rounded-xl font-bold hover:shadow-lg transition"
+
               >
                 ถัดไป →
               </button>
+
             </div>
           )}
 
-          {/* ================= STEP 2 ================= */}
-          {step === 2 && (
-            <div className="bg-white rounded-2xl shadow p-10 space-y-6 animate-fade-in-up">
-              <h2 className="text-xl font-semibold">ข้อมูลการลงสมัคร</h2>
 
-              <div>
-                <label className="text-sm font-medium mb-1 block">ชื่อพรรค / ทีม <span className="text-red-500">*</span></label>
-                <input
-                  className="border p-3 rounded-xl w-full focus:ring-2 focus:ring-emerald-500 outline-none"
-                  placeholder="เช่น พรรคก้าวใหม่"
-                  value={form.partyName}
-                  onChange={(e) =>
-                    setForm({ ...form, partyName: e.target.value })
-                  }
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-1 block">สโลแกน <span className="text-red-500">*</span></label>
-                <input
-                  className="border p-3 rounded-xl w-full focus:ring-2 focus:ring-emerald-500 outline-none"
-                  placeholder="เช่น เปลี่ยนเพื่อสิ่งที่ดีกว่า"
-                  value={form.slogan}
-                  onChange={(e) =>
-                    setForm({ ...form, slogan: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <button
-                  onClick={() => setStep(1)}
-                  className="flex-1 py-3 rounded-xl bg-slate-200 font-bold hover:bg-slate-300 transition"
-                >
-                  กลับ
-                </button>
-                <button
-                  onClick={handleNextStep2} // ✅ เรียกฟังก์ชันตรวจจับ
-                  className="flex-1 py-3 rounded-xl bg-emerald-600 font-bold text-white hover:bg-emerald-700 transition shadow-lg shadow-emerald-200"
-                >
-                  ถัดไป →
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* ================= STEP 3 ================= */}
-          {step === 3 && (
+          {step === 2 && (
             <div className="bg-white rounded-2xl shadow p-10 space-y-8 animate-fade-in-up">
-              
+
               {/* ✅ ส่วนที่ 1: ให้คะแนนนโยบายหลัก (1-5) */}
               <div>
                 <div className="mb-4">
                   <h2 className="text-xl font-semibold text-slate-800">1. ระดับความสำคัญนโยบายพรรค (มีผลต่อการเลือก)</h2>
                   <p className="text-sm text-red-500 font-medium">
-                    * ให้คะแนน 1-5 ตามความสำคัญ (5 = เน้นมากที่สุด, 1 = น้อยที่สุด) 
-                    <br/>** ห้ามให้คะแนนซ้ำกันเด็ดขาด (คะแนน 1 ค่า ใช้ได้ 1 นโยบายเท่านั้น)
+                    * ให้คะแนน 1-5 ตามความสำคัญ (5 = เน้นมากที่สุด, 1 = น้อยที่สุด)
+                    <br />** ห้ามให้คะแนนซ้ำกันเด็ดขาด (คะแนน 1 ค่า ใช้ได้ 1 นโยบายเท่านั้น)
                   </p>
                 </div>
-                
+
                 <div className="space-y-4 bg-slate-50 p-6 rounded-2xl border border-slate-100">
                   {policiesData.map(policy => (
                     <div key={policy.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
@@ -314,10 +503,10 @@ function AddCandidates() {
                         <span className="text-xl">{policy.icon}</span>
                         {policy.label}
                       </div>
-                      
+
                       <div className="flex justify-between items-center gap-2 md:gap-4">
                         <span className="text-xs font-bold text-gray-400 hidden sm:block w-16 text-right">น้อยที่สุด</span>
-                        
+
                         {/* ✅ ปุ่มให้คะแนน 1 ถึง 5 */}
                         {[1, 2, 3, 4, 5].map(score => {
                           const isSelected = corePolicyRanks[policy.id] === score;
@@ -337,7 +526,7 @@ function AddCandidates() {
                             </button>
                           );
                         })}
-                        
+
                         <span className="text-xs font-bold text-gray-400 hidden sm:block w-16 text-left">มากที่สุด</span>
                       </div>
                     </div>
@@ -350,7 +539,7 @@ function AddCandidates() {
               {/* ส่วนที่ 2: นโยบายเพิ่มเติม */}
               <div className="space-y-4">
                 <h2 className="text-xl font-semibold text-slate-800">2. นโยบายเพิ่มเติม (พิมพ์เอง)</h2>
-                
+
                 {policies.map((policy, i) => (
                   <div key={i} className="flex gap-2 items-center">
                     <input
@@ -387,7 +576,7 @@ function AddCandidates() {
 
               <div className="flex gap-4 pt-6 mt-6 border-t border-slate-100">
                 <button
-                  onClick={() => setStep(2)}
+                  onClick={() => setStep(1)}
                   className="flex-1 bg-slate-200 py-3 rounded-xl font-bold text-slate-700 hover:bg-slate-300 transition"
                 >
                   กลับ
@@ -403,26 +592,27 @@ function AddCandidates() {
                     }
 
                     // 2. เช็คนโยบายเพิ่มเติม (ถ้าพิมพ์ค้างไว้แล้วว่าง ให้เตือน)
-                    const hasEmptyPolicies = policies.some(p => !p.trim());
-                    if (hasEmptyPolicies) {
-                      return alert("กรุณากรอกนโยบายเพิ่มเติมให้ครบ (หากไม่ต้องการ ให้ลบช่องว่างออก)");
+                    const hasInvalidPolicies = policies.some(p => p.trim() !== "" && !isValidText(p, 5));
+
+                    if (hasInvalidPolicies) {
+                      return alert("นโยบายต้องมีความหมายและยาวอย่างน้อย 5 ตัวอักษร");
                     }
 
                     const formattedWeights = {
-                       study: (corePolicyRanks.study - 1) / 4,
-                       skill_workshop: (corePolicyRanks.skill_workshop - 1) / 4,
-                       equipment_borrow: (corePolicyRanks.equipment_borrow - 1) / 4,
-                       swap_market: (corePolicyRanks.swap_market - 1) / 4,
+                      study: (corePolicyRanks.study - 1) / 4,
+                      skill_workshop: (corePolicyRanks.skill_workshop - 1) / 4,
+                      equipment_borrow: (corePolicyRanks.equipment_borrow - 1) / 4,
+                      swap_market: (corePolicyRanks.swap_market - 1) / 4,
                     };
-
                     navigate("/candidate-preview", {
-                      state: { 
-                        form, 
-                        policies,
-                        weights: formattedWeights,
-                        profilePreview: profilePreview
-                      }
-                    });
+  state: {
+    form,
+    policies,
+    weights: formattedWeights,
+    profilePreview,
+    step: 2
+  }
+});
                   }}
                 >
                   ตรวจสอบข้อมูล →
@@ -437,4 +627,4 @@ function AddCandidates() {
   );
 }
 
-export default AddCandidates;
+export default AddCandidates; 

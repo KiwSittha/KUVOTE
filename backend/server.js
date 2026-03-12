@@ -273,6 +273,23 @@ app.post("/login", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ⭐ ตรวจสอบ email ผู้สมัครซ้ำ
+app.post("/candidates/check-email", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const existing = await db.collection("candidates").findOne({ email });
+
+    if (existing) {
+      return res.json({ exists: true });
+    }
+
+    res.json({ exists: false });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // =======================
 // 4. Candidates
@@ -295,12 +312,29 @@ app.post("/candidates", async (req, res) => {
       profileImage
     } = req.body;
 
+    const existingEmail = await db.collection("candidates").findOne({ email });
+
+    if (existingEmail) {
+      return res.status(409).json({
+        message: "duplicate_email"
+      });
+    }
+
     const candidateId = await getNextCandidateId(); 
 
     await db.collection("candidates").insertOne({
       candidateId,
-      studentId, name, nickname, faculty, major, year, email,
-      position, partyName, slogan, phone,
+      studentId,
+      name,
+      nickname,
+      faculty,
+      major,
+      year,
+      email,
+      position,
+      partyName,
+      slogan,
+      phone,
       profileImage,
       policies: policies || [],
       weights: weights || {},
@@ -311,9 +345,9 @@ app.post("/candidates", async (req, res) => {
       txHash: null 
     });
 
-    res.status(201).json({ 
-        message: "บันทึกข้อมูลการสมัครสำเร็จ กรุณารอแอดมินตรวจสอบ", 
-        candidateId
+    res.status(201).json({
+      message: "บันทึกข้อมูลการสมัครสำเร็จ กรุณารอแอดมินตรวจสอบ",
+      candidateId
     });
 
   } catch (err) {
@@ -323,27 +357,19 @@ app.post("/candidates", async (req, res) => {
 });
 
 app.get("/candidates", async (req, res) => {
-  try {
-    const candidates = await db.collection("candidates").find({}).toArray();
-    
-    const candidatesWithVotes = await Promise.all(candidates.map(async (c) => {
-        try {
-            if (c.status === "approved" && c.txHash) {
-                const votesBigInt = await contract.getVoteCount(c.candidateId);
-                return { ...c, votes: Number(votesBigInt) };
-            }
-            return { ...c, votes: 0 }; 
-        } catch (error) {
-            console.error(`Error fetching votes for candidate ${c.candidateId}:`, error.message);
-            return { ...c, votes: 0 };
-        }
-    }));
-    
-    candidatesWithVotes.sort((a, b) => b.votes - a.votes);
-    res.json(candidatesWithVotes);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  const candidates = await db.collection("candidates").find({
+    status: "approved"
+  }).toArray();
+
+  res.json(candidates);
+});
+app.get("/admin/candidates", async (req, res) => {
+  const candidates = await db.collection("candidates")
+    .find()
+    .sort({ candidateId: 1 })
+    .toArray();
+
+  res.json(candidates);
 });
 
 // =======================
@@ -798,6 +824,19 @@ app.get("/admin/users", verifyAdmin, async (req, res) => {
       createdAt: u.createdAt
     }));
     res.json(safeUsers);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.get("/admin/candidates", verifyAdmin, async (req, res) => {
+  try {
+
+    const candidates = await db.collection("candidates")
+      .find({})
+      .toArray();
+
+    res.json(candidates);
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
