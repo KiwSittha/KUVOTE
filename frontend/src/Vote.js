@@ -100,6 +100,18 @@ export default function Vote() {
 
     if (pin) {
       try {
+        // ✅ Re-check ก่อน submit เผื่อ Admin ปิดระบบขณะที่ user อยู่บนหน้าอยู่แล้ว
+        const statusRes = await fetch("http://localhost:8000/election-status");
+        const statusData = await statusRes.json();
+        const nowMs = new Date().getTime();
+        const startMs = statusData.startTime ? new Date(statusData.startTime).getTime() : 0;
+        const endMs = statusData.endTime ? new Date(statusData.endTime).getTime() : Infinity;
+        if (!statusData.isOpen || nowMs < startMs || nowMs > endMs) {
+          Swal.fire({ icon: "warning", title: "ระบบปิดรับลงคะแนน", text: "ขณะนี้ไม่อยู่ในช่วงเวลาที่เปิดให้ลงคะแนนเสียง", confirmButtonColor: "#ef4444" });
+          navigate("/");
+          return;
+        }
+
         Swal.fire({ title: 'กำลังบันทึกคะแนน...', didOpen: () => Swal.showLoading() });
 
         const token = localStorage.getItem("token");

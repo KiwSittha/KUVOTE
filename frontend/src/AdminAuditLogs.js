@@ -170,7 +170,7 @@ export default function AdminAuditLogs() {
                   {logs.map((log) => (
                     <tr key={log._id} className="border-b border-slate-100 align-top hover:bg-slate-50">
                       <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                        {new Date(log.createdAt).toLocaleString("th-TH")}
+                        {new Date(log.createdAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                       </td>
                       <td className="px-4 py-3">
                         <div className="font-semibold text-slate-800">{log.actorEmail || "-"}</div>

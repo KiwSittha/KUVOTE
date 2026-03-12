@@ -559,10 +559,17 @@ app.post("/admin/toggle-election", verifyAdmin, async (req, res) => {
 
 app.post("/vote", async (req, res) => {
   try {
-    // 🔥 0. เช็คสวิตช์ก่อนเลยว่า แอดมินเปิดให้โหวตหรือยัง (ใหม่)
+    // 🔥 0. เช็คสวิตช์ + เวลา ก่อนรับโหวต
     const electionState = await db.collection("settings").findOne({ _id: "electionState" });
     if (!electionState || !electionState.isOpen) {
-      return res.status(403).json({ message: "ขณะนี้ระบบปิดรับการลงคะแนนแล้ว" });
+      return res.status(403).json({ message: "ขณะนี้ระบบปิดรับการลงคะแนนแล้ว (ระงับโดย Admin)" });
+    }
+    const now = new Date();
+    if (electionState.startTime && now < new Date(electionState.startTime)) {
+      return res.status(403).json({ message: "ยังไม่ถึงเวลาเปิดรับการลงคะแนน" });
+    }
+    if (electionState.endTime && now > new Date(electionState.endTime)) {
+      return res.status(403).json({ message: "หมดเวลาลงคะแนนแล้ว" });
     }
 
     const { email, votePin, candidateId } = req.body;

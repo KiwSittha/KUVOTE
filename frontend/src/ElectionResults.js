@@ -95,6 +95,7 @@ export default function ElectionResults() {
   });
   const [electionStatus, setElectionStatus] = useState({ isOpen: false, endTime: null });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [countdown, setCountdown] = useState(30);
   const [activeChart, setActiveChart] = useState("bar"); // 'bar' | 'pie'
@@ -121,6 +122,7 @@ export default function ElectionResults() {
       setCountdown(30);
     } catch (e) {
       console.error("ElectionResults fetch error:", e);
+      setError("ไม่สามารถโหลดข้อมูลได้ กรุณาตรวจสอบการเชื่อมต่อ");
     } finally {
       setLoading(false);
     }
@@ -253,6 +255,21 @@ export default function ElectionResults() {
       <div className="h-screen flex flex-col items-center justify-center bg-[#1A5D3A] text-white gap-4">
         <div className="w-14 h-14 border-4 border-white border-t-transparent rounded-full animate-spin" />
         <p className="text-lg font-semibold tracking-widest">กำลังโหลดผลการเลือกตั้ง...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-[#1A5D3A] text-white gap-4 px-4 text-center">
+        <div className="text-5xl">⚠️</div>
+        <p className="text-lg font-semibold">{error}</p>
+        <button
+          onClick={() => { setError(null); setLoading(true); fetchData(); }}
+          className="mt-2 px-6 py-2.5 bg-white text-[#1A5D3A] font-bold rounded-xl hover:bg-emerald-50 transition-colors"
+        >
+          ลองใหม่อีกครั้ง
+        </button>
       </div>
     );
   }
