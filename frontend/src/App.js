@@ -25,6 +25,8 @@ import ProtectedRoute from "./components/ProtectedRoute"; // ✅ 1. นำเข
 import ElectionResults from "./ElectionResults";
 import AdminAnnouncements from "./AdminAnnouncements";
 import AdminAuditLogs from "./AdminAuditLogs";
+import AdminImageGenerator from "./AdminImageGenerator";
+import AdminCandidateMediaGenerator from "./AdminCandidateMediaGenerator";
 
 function App() {
   return (
@@ -161,6 +163,24 @@ function App() {
         element={
           <AdminRoute>
             <AdminAuditLogs />
+          </AdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin-image-generator"
+        element={
+          <AdminRoute>
+            <AdminImageGenerator />
+          </AdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin-candidate-media"
+        element={
+          <AdminRoute>
+            <AdminCandidateMediaGenerator />
           </AdminRoute>
         }
       />

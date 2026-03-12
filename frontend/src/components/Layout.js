@@ -200,6 +200,13 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
               text="Audit Log" 
               active={location.pathname === "/admin-audit-logs"} 
             />
+            <MenuItem
+              open={open}
+              to="/admin-candidate-media"
+              icon="🎨"
+              text="Design Studio"
+              active={location.pathname === "/admin-image-generator" || location.pathname === "/admin-candidate-media"}
+            />
             </>
             
           )}
@@ -367,7 +374,6 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
                 </div>
               </div>
             )}
-          )}
           {children}
         </main>
         
