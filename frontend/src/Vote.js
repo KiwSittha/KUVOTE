@@ -3,6 +3,10 @@ import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2"; 
 import Layout from "./components/Layout";
 
+function getVoteCardImage(candidate) {
+  return candidate?.mediaImages?.campaign || candidate?.mediaImages?.profile || candidate?.profileImage || "";
+}
+
 export default function Vote() {
   const [candidates, setCandidates] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
@@ -207,9 +211,9 @@ export default function Vote() {
                   
                   {/* ส่วนรูปภาพ */}
                   <div className="aspect-[4/3] rounded-2xl overflow-hidden mb-4 bg-slate-100 relative shadow-inner group-hover:shadow-md transition-all">
-                    {candidate.profileImage ? (
+                    {getVoteCardImage(candidate) ? (
                       <img 
-                        src={candidate.profileImage} 
+                        src={getVoteCardImage(candidate)} 
                         alt={candidate.name} 
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                       />

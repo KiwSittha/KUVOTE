@@ -154,6 +154,8 @@ export default function AdminCandidateMediaGenerator() {
   const [isCreatingImage, setIsCreatingImage] = useState(false);
   const [isDownloadingPng, setIsDownloadingPng] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [publishDestination, setPublishDestination] = useState("candidate");
+  const [publishCandidateTarget, setPublishCandidateTarget] = useState("profile");
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [sizePreset, setSizePreset] = useState("");
   const [customWidth, setCustomWidth] = useState(1080);
@@ -162,7 +164,30 @@ export default function AdminCandidateMediaGenerator() {
 
   const previewRef = useRef(null);
 
-  const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:8000";
+  const rawApiBase = (process.env.REACT_APP_API_URL || "").trim();
+  const API_BASE = /^https?:\/\//i.test(rawApiBase) ? rawApiBase.replace(/\/$/, "") : "http://localhost:8000";
+
+  const parseResponsePayload = async (response) => {
+    const contentType = response.headers.get("content-type") || "";
+    const rawText = await response.text();
+
+    if (!rawText) return null;
+
+    if (contentType.includes("application/json")) {
+      try {
+        return JSON.parse(rawText);
+      } catch {
+        return null;
+      }
+    }
+
+    // บางกรณี backend ตอบ JSON แต่ header ไม่ถูกต้อง
+    try {
+      return JSON.parse(rawText);
+    } catch {
+      return { rawText, isHtml: /^\s*<!doctype html/i.test(rawText) || /^\s*<html/i.test(rawText) };
+    }
+  };
 
   const fetchCandidates = async () => {
     try {
@@ -230,6 +255,15 @@ export default function AdminCandidateMediaGenerator() {
     setCandidateSlogan(selectedCandidate.slogan || selectedCandidate.partyName || "");
     setCustomCandidateImage("");
   }, [selectedCandidate]);
+
+  useEffect(() => {
+    const mediaTypeByTemplate = {
+      profile: "profile",
+      campaign: "campaign",
+      banner: "result",
+    };
+    setPublishCandidateTarget(mediaTypeByTemplate[templateKey] || "profile");
+  }, [templateKey]);
 
   const workingCandidate = useMemo(() => {
     const baseCandidate = selectedCandidate || {};
@@ -350,8 +384,9 @@ export default function AdminCandidateMediaGenerator() {
     }
   };
 
-  const handlePublishBanner = async () => {
+  const handlePublish = async () => {
     if (!previewRef.current) return;
+    if (!workingCandidate) return;
     try {
       setIsPublishing(true);
       setStatusMessage("");
@@ -360,17 +395,66 @@ export default function AdminCandidateMediaGenerator() {
       if (!canvas) return;
       // แปลงเป็น JPEG เพื่อให้ขนาดไฟล์เล็กลง แล้วส่งเป็น base64
       const imageUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+      const candidateKey = String(workingCandidate._id || workingCandidate.candidateId || "").trim();
+      if (!candidateKey && publishDestination === "candidate") throw new Error("ไม่พบรหัสผู้สมัครสำหรับเผยแพร่");
+
+      const publishMediaType = publishCandidateTarget;
+      const mediaTypeLabel = {
+        profile: "หน้าผู้สมัคร",
+        campaign: "หน้าลงคะแนนเสียง",
+        result: "หน้าผลการเลือกตั้ง",
+      };
+
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/admin/home-banner`, {
+      const requestUrl =
+        publishDestination === "home"
+          ? `${API_BASE}/admin/home-banner`
+          : `${API_BASE}/admin/candidates/${encodeURIComponent(candidateKey)}/publish-media`;
+
+      const requestBody =
+        publishDestination === "home"
+          ? { imageUrl, label: templateKey }
+          : { imageUrl, sourceTemplate: templateKey, mediaType: publishMediaType };
+
+      const res = await fetch(requestUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ imageUrl, label: templateKey }),
+        body: JSON.stringify(requestBody),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "เผยแพร่ไม่สำเร็จ");
-      setStatusMessage("เผยแพร่แบนเนอร์หน้าหลักสำเร็จ!");
+      const data = await parseResponsePayload(res);
+
+      if (!res.ok) {
+        const serverMessage = data && typeof data === "object" ? (data.message || data.error) : "";
+        throw new Error(serverMessage || `เผยแพร่ไม่สำเร็จ (HTTP ${res.status})`);
+      }
+
+      if (data?.isHtml) {
+        throw new Error("API ตอบกลับเป็นหน้า HTML แทน JSON (ตรวจสอบ REACT_APP_API_URL ให้ชี้ไป backend เช่น http://localhost:8000)");
+      }
+
+      if (publishDestination === "home") {
+        setStatusMessage("เผยแพร่ป้ายประกาศหน้าหลักสำเร็จ");
+      } else {
+        setCandidates((prev) =>
+          prev.map((item) =>
+            String(item._id || item.candidateId) === String(candidateKey)
+              ? {
+                  ...item,
+                  profileImage: publishMediaType === "profile" ? imageUrl : item.profileImage,
+                  mediaImages: {
+                    ...(item.mediaImages || {}),
+                    [publishMediaType]: imageUrl,
+                  },
+                }
+              : item
+          )
+        );
+        setCustomCandidateImage(imageUrl);
+        setStatusMessage(`เผยแพร่สื่อผู้สมัครสำเร็จ: อัปเดต${mediaTypeLabel[publishMediaType]}แล้ว`);
+      }
     } catch (error) {
-      console.error("Publish banner failed:", error);
+      console.error("Publish candidate media failed:", error);
       setErrorMessage("เผยแพร่ไม่สำเร็จ: " + error.message);
     } finally {
       setIsPublishing(false);
@@ -703,6 +787,62 @@ export default function AdminCandidateMediaGenerator() {
 
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
               <p className="text-sm font-bold text-emerald-900">Actions</p>
+              <div className="rounded-xl border border-emerald-200 bg-white p-3 space-y-3">
+                <div>
+                  <p className="text-xs font-semibold text-slate-700 mb-2">ปลายทางการเผยแพร่</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPublishDestination("home")}
+                      className={`rounded-lg border px-3 py-2 text-xs font-bold transition ${
+                        publishDestination === "home"
+                          ? "border-blue-500 bg-blue-50 text-blue-700"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      หน้าหลัก (ป้ายประกาศ)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPublishDestination("candidate")}
+                      className={`rounded-lg border px-3 py-2 text-xs font-bold transition ${
+                        publishDestination === "candidate"
+                          ? "border-blue-500 bg-blue-50 text-blue-700"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      สื่อผู้สมัคร
+                    </button>
+                  </div>
+                </div>
+
+                {publishDestination === "candidate" && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-700 mb-2">ตำแหน่งแสดงผลสำหรับสื่อผู้สมัคร</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { key: "profile", label: "หน้าผู้สมัคร" },
+                        { key: "campaign", label: "หน้าลงคะแนน" },
+                        { key: "result", label: "หน้าผลเลือกตั้ง" },
+                      ].map((item) => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => setPublishCandidateTarget(item.key)}
+                          className={`rounded-lg border px-2 py-2 text-[11px] font-bold transition ${
+                            publishCandidateTarget === item.key
+                              ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <button
                   type="button"
@@ -722,11 +862,15 @@ export default function AdminCandidateMediaGenerator() {
                 </button>
                 <button
                   type="button"
-                  onClick={handlePublishBanner}
+                  onClick={handlePublish}
                   disabled={!workingCandidate || isPublishing}
                   className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-lg hover:bg-blue-700 transition disabled:opacity-60 col-span-2"
                 >
-                  {isPublishing ? "กำลังเผยแพร่..." : "📢 เผยแพร่เป็นแบนเนอร์หน้าหลัก"}
+                  {isPublishing
+                    ? "กำลังเผยแพร่..."
+                    : publishDestination === "home"
+                      ? "📢 เผยแพร่ไปหน้าหลัก"
+                      : "📢 เผยแพร่เป็นสื่อผู้สมัคร"}
                 </button>
                 <button
                   type="button"

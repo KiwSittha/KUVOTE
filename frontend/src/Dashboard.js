@@ -3,6 +3,10 @@ import Layout from "./components/Layout";
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
+function getResultImage(candidate) {
+    return candidate?.mediaImages?.result || candidate?.mediaImages?.campaign || candidate?.mediaImages?.profile || candidate?.profileImage || "";
+}
+
 function Dashboard() {
   const [candidates, setCandidates] = useState([]);
   const [summary, setSummary] = useState({ 
@@ -78,8 +82,8 @@ function Dashboard() {
                 {podiumDisplay.map(({ c, rank, badgeColor }) => (
                     <div key={c._id} className="relative flex flex-col items-center group">
                         <img 
-                            src={c.profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=Candidate${c.candidateId || c.number}`} 
-                            className={`object-cover rounded-3xl shadow-2xl bg-white transition-all duration-300 group-hover:scale-105 group-hover:-translate-y-2 ${rank === 1 ? 'w-40 h-40 md:w-56 md:h-56 z-20' : 'w-32 h-32 md:w-44 md:h-44 opacity-95 hover:opacity-100 z-10'}`} 
+                            src={getResultImage(c) || `https://api.dicebear.com/7.x/avataaars/svg?seed=Candidate${c.candidateId || c.number}`} 
+                            className={`object-cover rounded-3xl shadow-2xl bg-white transition-all duration-300 group-hover:scale-105 group-hover:-translate-y-2 ${rank === 1 ? 'w-40 h-40 md:w-56 md:h-56 z-20 border-4 border-yellow-400' : 'w-32 h-32 md:w-44 md:h-44 opacity-95 hover:opacity-100 z-10'}`} 
                             alt={c.name} 
                         />
                         <div className={`absolute -top-4 -right-4 font-black w-10 h-10 md:w-14 md:h-14 rounded-2xl flex items-center justify-center shadow-lg text-lg md:text-2xl z-30 ${badgeColor}`}>

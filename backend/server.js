@@ -1077,6 +1077,81 @@ app.get("/admin/audit-logs", verifyAdmin, async (req, res) => {
 });
 
 // =======================
+// 🖼️ Candidate Media Publish (Candidate Media Studio → Candidate/Vote/Dashboard)
+// =======================
+app.post("/admin/candidates/:id/publish-media", verifyAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { imageUrl, sourceTemplate, mediaType } = req.body;
+
+    if (!imageUrl || typeof imageUrl !== "string") {
+      return res.status(400).json({ message: "กรุณาระบุ imageUrl" });
+    }
+
+    const query = id.length === 24 ? { _id: new ObjectId(id) } : { candidateId: parseInt(id) };
+    const candidate = await db.collection("candidates").findOne(query);
+    if (!candidate) {
+      return res.status(404).json({ message: "ไม่พบผู้สมัครที่ต้องการเผยแพร่สื่อ" });
+    }
+
+    const templateTypeMap = {
+      profile: "profile",
+      campaign: "campaign",
+      banner: "result",
+    };
+
+    const normalizedMediaType = ["profile", "campaign", "result"].includes(mediaType)
+      ? mediaType
+      : (templateTypeMap[sourceTemplate] || "profile");
+
+    const nextMediaImages = {
+      ...(candidate.mediaImages || {}),
+      [normalizedMediaType]: imageUrl,
+    };
+
+    const publishedAt = new Date();
+    const nextSet = {
+      mediaImages: nextMediaImages,
+      mediaMeta: {
+        sourceTemplate: sourceTemplate || "profile",
+        mediaType: normalizedMediaType,
+        publishedAt,
+        publishedBy: req.user.email,
+      },
+    };
+
+    if (normalizedMediaType === "profile") {
+      nextSet.profileImage = imageUrl;
+    }
+
+    await db.collection("candidates").updateOne(query, { $set: nextSet });
+
+    await writeAuditLog({
+      actorEmail: req.user.email,
+      actorRole: "admin",
+      action: "ADMIN_PUBLISH_CANDIDATE_MEDIA",
+      targetType: "candidate",
+      targetId: String(candidate._id),
+      details: {
+        candidateId: candidate.candidateId,
+        sourceTemplate: sourceTemplate || "profile",
+        mediaType: normalizedMediaType,
+      },
+      ipAddress: req.ip,
+    });
+
+    res.json({
+      message: "เผยแพร่ภาพผู้สมัครสำเร็จ",
+      candidateId: candidate.candidateId,
+      mediaType: normalizedMediaType,
+    });
+  } catch (err) {
+    console.error("Publish candidate media error:", err.message);
+    res.status(500).json({ message: "เผยแพร่สื่อผู้สมัครไม่สำเร็จ", error: err.message });
+  }
+});
+
+// =======================
 // Community Discussion
 // =======================
 

@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Layout from "./components/Layout";
 
+function getCandidateImage(candidate) {
+  return candidate?.mediaImages?.profile || candidate?.profileImage || "";
+}
+
 function Candidates() {
   const [candidates, setCandidates] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -94,10 +98,10 @@ function Candidates() {
                     <div className="absolute inset-0 bg-emerald-300 rounded-full blur-2xl opacity-20"></div>
                     
                     {/* ✅ ส่วนที่แก้ไข: ดึงรูปภาพจาก Database */}
-                    {currentCandidate.profileImage ? (
+                    {getCandidateImage(currentCandidate) ? (
                       <div className="w-56 h-56 md:w-64 md:h-64 rounded-full overflow-hidden border-4 border-white shadow-xl relative drop-shadow-2xl bg-white">
                         <img
-                          src={currentCandidate.profileImage}
+                          src={getCandidateImage(currentCandidate)}
                           alt={`ผู้สมัครเบอร์ ${currentCandidate.candidateId}`}
                           className="w-full h-full object-cover"
                           onError={(e) => {
