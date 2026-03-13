@@ -153,6 +153,7 @@ export default function AdminCandidateMediaGenerator() {
 
   const [isCreatingImage, setIsCreatingImage] = useState(false);
   const [isDownloadingPng, setIsDownloadingPng] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [sizePreset, setSizePreset] = useState("");
   const [customWidth, setCustomWidth] = useState(1080);
@@ -346,6 +347,33 @@ export default function AdminCandidateMediaGenerator() {
       setErrorMessage("ดาวน์โหลด PNG ไม่สำเร็จ กรุณาลองใหม่");
     } finally {
       setIsDownloadingPng(false);
+    }
+  };
+
+  const handlePublishBanner = async () => {
+    if (!previewRef.current) return;
+    try {
+      setIsPublishing(true);
+      setStatusMessage("");
+      setErrorMessage("");
+      const canvas = await captureCanvas(previewRef);
+      if (!canvas) return;
+      // แปลงเป็น JPEG เพื่อให้ขนาดไฟล์เล็กลง แล้วส่งเป็น base64
+      const imageUrl = canvas.toDataURL("image/jpeg", 0.85);
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/admin/home-banner`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ imageUrl, label: templateKey }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "เผยแพร่ไม่สำเร็จ");
+      setStatusMessage("เผยแพร่แบนเนอร์หน้าหลักสำเร็จ!");
+    } catch (error) {
+      console.error("Publish banner failed:", error);
+      setErrorMessage("เผยแพร่ไม่สำเร็จ: " + error.message);
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -691,6 +719,14 @@ export default function AdminCandidateMediaGenerator() {
                   className="rounded-xl border border-emerald-300 bg-white px-4 py-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-100 transition disabled:opacity-60"
                 >
                   {isDownloadingPng ? "กำลังดาวน์โหลด..." : "ดาวน์โหลด PNG"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePublishBanner}
+                  disabled={!workingCandidate || isPublishing}
+                  className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-lg hover:bg-blue-700 transition disabled:opacity-60 col-span-2"
+                >
+                  {isPublishing ? "กำลังเผยแพร่..." : "📢 เผยแพร่เป็นแบนเนอร์หน้าหลัก"}
                 </button>
                 <button
                   type="button"

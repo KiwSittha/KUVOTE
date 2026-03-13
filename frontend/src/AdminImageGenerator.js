@@ -112,6 +112,14 @@ function fileToDataUrl(file) {
 export default function AdminImageGenerator() {
   const previewRef = useRef(null);
 
+  const buildDefaultExpireAt = () => {
+    const date = new Date();
+    date.setDate(date.getDate() + 7);
+    date.setHours(18, 0, 0, 0);
+    const pad = (value) => String(value).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
   const [templateKey, setTemplateKey] = useState("electionResult");
   const [themeKey, setThemeKey] = useState("universityGreen");
   const [fontKey, setFontKey] = useState("kanit");
@@ -125,8 +133,13 @@ export default function AdminImageGenerator() {
   const [exportFormat, setExportFormat] = useState("png");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [generatedAt, setGeneratedAt] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  const [publisherName, setPublisherName] = useState("องค์การนิสิต มหาวิทยาลัยเกษตรศาสตร์");
+  const [expiresAt, setExpiresAt] = useState(() => buildDefaultExpireAt());
+
+  const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:8000";
   const [sizePreset, setSizePreset] = useState("");
   const [customWidth, setCustomWidth] = useState(1600);
   const [customHeight, setCustomHeight] = useState(900);
@@ -233,6 +246,34 @@ export default function AdminImageGenerator() {
       setStatusMessage("ดาวน์โหลดไม่สำเร็จ กรุณาลองใหม่");
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handlePublishBanner = async () => {
+    try {
+      setIsPublishing(true);
+      setStatusMessage("");
+      const dataUrl = await renderDataUrl("jpg");
+      if (!dataUrl) return;
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/admin/home-banner`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          imageUrl: dataUrl,
+          label: templateKey,
+          publisherName,
+          expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "เผยแพร่ไม่สำเร็จ");
+      setStatusMessage("📢 เผยแพร่แบนเนอร์หน้าหลักสำเร็จ พร้อมวันหมดอายุประกาศ");
+    } catch (error) {
+      console.error("Publish banner failed:", error);
+      setStatusMessage("เผยแพร่ไม่สำเร็จ: " + error.message);
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -455,6 +496,22 @@ export default function AdminImageGenerator() {
                   <option value="jpg">JPG</option>
                 </select>
               </div>
+              <input
+                type="text"
+                value={publisherName}
+                onChange={(e) => setPublisherName(e.target.value)}
+                placeholder="หน่วยงานผู้ออกประกาศ"
+                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              />
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-slate-600">วันหมดอายุประกาศ</label>
+                <input
+                  type="datetime-local"
+                  value={expiresAt}
+                  onChange={(e) => setExpiresAt(e.target.value)}
+                  className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
               <button
                 type="button"
                 onClick={handleGenerateImage}
@@ -470,6 +527,14 @@ export default function AdminImageGenerator() {
                 className="w-full rounded-xl border border-emerald-300 bg-white px-4 py-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 transition disabled:opacity-60"
               >
                 {isDownloading ? "กำลังดาวน์โหลด..." : `ดาวน์โหลดภาพ ${exportFormat.toUpperCase()}`}
+              </button>
+              <button
+                type="button"
+                onClick={handlePublishBanner}
+                disabled={isPublishing}
+                className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow hover:bg-blue-700 transition disabled:opacity-60"
+              >
+                {isPublishing ? "กำลังเผยแพร่..." : "📢 เผยแพร่เป็นป้ายหน้าหลัก"}
               </button>
               {statusMessage && <p className="text-xs text-emerald-700">{statusMessage}</p>}
             </div>

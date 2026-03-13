@@ -26,6 +26,8 @@ import AdminRoute from "./components/AdminRoute";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminImageGenerator from "./AdminImageGenerator";
 import AdminCandidateMediaGenerator from "./AdminCandidateMediaGenerator";
+import Community from "./Community";
+import CommunityThread from "./CommunityThread";
 
 function App() {
   return (
@@ -74,6 +76,24 @@ function App() {
             <Vote />
           </ProtectedRoute>
         } 
+      />
+
+      {/* Community Discussion */}
+      <Route
+        path="/community"
+        element={
+          <ProtectedRoute>
+            <Community />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/community/:id"
+        element={
+          <ProtectedRoute>
+            <CommunityThread />
+          </ProtectedRoute>
+        }
       />
 
       <Route 

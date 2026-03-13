@@ -145,7 +145,7 @@ export default function Layout({ children, fullScreen = false, hideHeader = fals
           <MenuItem open={open} to={user ? "/recommend" : "/login"} icon="🎯" text="ค้นหาคนที่ใช่" active={location.pathname === "/recommend"} />
           <MenuItem open={open} to={user ? "/vote" : "/login"} icon="🗳️" text="ลงคะแนนเสียง" active={location.pathname === "/vote"} />
           <MenuItem open={open} to={user ? "/dashboard" : "/login"} icon="📊" text="ผลการเลือกตั้ง" active={location.pathname === "/dashboard"} />
-          
+          <MenuItem open={open} to={user ? "/community" : "/login"} icon="💬" text="Community" active={location.pathname.startsWith("/community")} />
           {isAdmin && (
             <>
             <MenuItem open={open} to={user ? "/select-position" : "/login"} icon="➕" text="สมัคร" active={location.pathname === "/select-position"} />
